@@ -1,0 +1,82 @@
+const DEFAULT_UNKNOWN_TITLE = 'Untitled control';
+const collectText = (control) => {
+    const textParts = [];
+    if (control.title)
+        textParts.push(control.title);
+    if (control.class)
+        textParts.push(control.class);
+    control.props?.forEach((prop) => {
+        if (prop.name)
+            textParts.push(prop.name);
+        if (prop.value)
+            textParts.push(prop.value);
+    });
+    control.params?.forEach((param) => {
+        if (param.label)
+            textParts.push(param.label);
+        if (param.prose)
+            textParts.push(param.prose);
+    });
+    control.parts?.forEach((part) => {
+        if (part.title)
+            textParts.push(part.title);
+        if (part.name)
+            textParts.push(part.name);
+        if (part.prose)
+            textParts.push(part.prose);
+    });
+    return textParts.join(' ').trim();
+};
+const ensureId = (control, ctx) => {
+    if (control.id)
+        return String(control.id);
+    const generated = `control-${Math.random().toString(36).slice(2)}`;
+    ctx.warnings.push('Encountered control without ID; generated synthetic ID.');
+    return generated;
+};
+const flattenControls = (controls, groupPath, ctx) => {
+    if (!controls?.length)
+        return [];
+    return controls.flatMap((control) => {
+        const id = ensureId(control, ctx);
+        const title = control.title?.trim() || id || DEFAULT_UNKNOWN_TITLE;
+        const fullText = [title, collectText(control)].filter(Boolean).join(' ');
+        const current = {
+            id,
+            title,
+            groupPath,
+            fullText,
+            control
+        };
+        const nested = flattenControls(control.controls, [...groupPath, title], ctx);
+        return [current, ...nested];
+    });
+};
+const walkGroup = (group, path, ctx) => {
+    const nextPath = group.title ? [...path, group.title] : path;
+    const current = flattenControls(group.controls, nextPath, ctx);
+    const nested = group.groups?.flatMap((child) => walkGroup(child, nextPath, ctx)) ?? [];
+    return [...current, ...nested];
+};
+export const parseCatalog = (input) => {
+    const ctx = { warnings: [] };
+    try {
+        const maybeRoot = input;
+        if (!maybeRoot || typeof maybeRoot !== 'object' || !('catalog' in maybeRoot)) {
+            throw new Error('Missing "catalog" root property');
+        }
+        const catalog = maybeRoot.catalog;
+        if (!catalog || typeof catalog !== 'object') {
+            throw new Error('Invalid catalog structure');
+        }
+        const controls = [
+            ...flattenControls(catalog.controls, [], ctx),
+            ...(catalog.groups?.flatMap((group) => walkGroup(group, [], ctx)) ?? [])
+        ];
+        return { controls, warnings: ctx.warnings };
+    }
+    catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown parsing error';
+        return { controls: [], warnings: [message] };
+    }
+};
