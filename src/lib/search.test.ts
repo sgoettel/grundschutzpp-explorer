@@ -16,15 +16,18 @@ describe('buildIndex', () => {
         id: 'A',
         title: 'Group Policy A',
         fullText: 'policy for group A',
-        groupPath: ['Group']
+        groupPath: ['Group'],
+        control: {} as unknown as ControlRecord['control']
       },
       {
         id: 'B',
         title: 'Other Policy B',
         fullText: 'policy for other group',
-        groupPath: ['Other']
+        groupPath: ['Other'],
+        control: {} as unknown as ControlRecord['control']
       }
     ];
+
 
     const { query } = buildIndex(records);
 
