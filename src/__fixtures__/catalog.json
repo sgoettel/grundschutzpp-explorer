@@ -1,0 +1,39 @@
+{
+  "catalog": {
+    "title": "Synthetic Catalog",
+    "controls": [
+      {
+        "id": "CTRL-ROOT",
+        "title": "Root Control",
+        "parts": [{ "name": "statement", "prose": "Root level statement" }]
+      }
+    ],
+    "groups": [
+      {
+        "id": "GRP-1",
+        "title": "Group One",
+        "controls": [
+          {
+            "id": "CTRL-1",
+            "title": "Control One",
+            "class": "Management",
+            "params": [{ "id": "p1", "label": "Param", "prose": "Param detail" }],
+            "parts": [{ "name": "statement", "prose": "Control prose" }],
+            "controls": [
+              { "id": "CTRL-1.1", "title": "Nested Control", "parts": [{ "name": "stmt", "prose": "Nested text" }] }
+            ]
+          }
+        ],
+        "groups": [
+          {
+            "id": "GRP-1-A",
+            "title": "Subgroup",
+            "controls": [
+              { "id": "CTRL-2", "title": "Control Two" }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
