@@ -5,3 +5,7 @@ dist
 coverage
 .vscode
 .idea
+
+# TypeScript build info
+*.tsbuildinfo
+
