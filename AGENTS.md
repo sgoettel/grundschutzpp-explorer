@@ -43,3 +43,17 @@ Use npm (not pnpm) for compatibility.
 - In Docker (node:20-bullseye): npm ci && npx vitest run && npm run build must be green.
 - If a change affects search/export/diff/parsing: add or update tests accordingly.
 - Provide a short PR summary + risks/limitations.
+
+## Agent execution rules (for Codex)
+
+- The Grundschutz++ OSCAL explorer (React + TypeScript + MiniSearch + caching + exports) is **already implemented** in `main`.
+- Do **not** reimplement the app from scratch. Work **incrementally** on the existing code.
+- Hard limit for changes: only modify files under `src/**` unless I explicitly say otherwise.
+- Do **not** change:
+  - `package.json`, `tsconfig*.json`, `vite.config.ts`, `vitest.config.ts`
+  - `.github/workflows/**`
+  - `index.html`, `public/**`
+  - `README.md` (unless explicitly requested).
+- Do **not** run `npm install`, `npm test`, `npm run build` in your sandbox.  
+  I will run `npm ci && npx vitest run && npm run build` locally (via Docker).
+- Output should be a minimal, reviewable diff. Prefer small, focused changes over broad refactors.
