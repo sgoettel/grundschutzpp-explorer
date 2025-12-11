@@ -64,6 +64,4 @@ Das statische Build-Artefakt liegt danach in `dist/` und kann von jedem simplen 
 
 ## Kontakt / Mitmachen
 
-Wenn du Ideen für sinnvolle Erweiterungen hast oder beim Code helfen möchtest, melde dich gern.
-
-[![Mail](https://github.com/sgoettel/sgoettel/blob/main/img/mail.png)](https://github.com/sgoettel/sgoettel/blob/main/img/mail.png)
+Wenn du Ideen für sinnvolle Erweiterungen hast oder beim Code helfen möchtest, [melde dich gern](https://github.com/sgoettel/sgoettel/blob/main/img/mail.png).
