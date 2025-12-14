@@ -8,23 +8,35 @@ const DEFAULT_UNKNOWN_TITLE = 'Untitled control';
 
 const collectText = (control: CatalogControl): string => {
   const textParts: string[] = [];
-  if (control.title) textParts.push(control.title);
-  if (control.class) textParts.push(control.class);
+
+  // title kommt separat in flattenControls nach vorne
+  if (control.class) {
+    textParts.push(control.class);
+  }
+
+  // Nur „inhaltliche“ Props in den Fließtext aufnehmen:
+  // - tags: ja (für Suche/Wiederfinden)
+  // - alt-identifier, effort_level usw.: nein (nur im Metadaten-Block)
   control.props?.forEach((prop) => {
-    if (prop.name) textParts.push(prop.name);
-    if (prop.value) textParts.push(prop.value);
+    if (prop.name === 'tags' && prop.value) {
+      textParts.push(prop.value);
+    }
   });
+
   control.params?.forEach((param) => {
     if (param.label) textParts.push(param.label);
     if (param.prose) textParts.push(param.prose);
   });
+
   control.parts?.forEach((part) => {
     if (part.title) textParts.push(part.title);
     if (part.name) textParts.push(part.name);
     if (part.prose) textParts.push(part.prose);
   });
+
   return textParts.join(' ').trim();
 };
+
 
 const ensureId = (control: CatalogControl, ctx: ParseContext): string => {
   if (control.id) return String(control.id);

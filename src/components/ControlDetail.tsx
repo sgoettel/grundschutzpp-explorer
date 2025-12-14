@@ -39,16 +39,17 @@ const ControlDetail: React.FC<DetailProps> = ({ control }) => {
           </ul>
         </section>
       ) : null}
-      {raw.params?.length ? (
-        <section>
-          <h4>Parameter</h4>
-          {renderList(raw.params)}
-        </section>
-      ) : null}
       {raw.props?.length ? (
         <section>
           <h4>Properties</h4>
-          {renderList(raw.props)}
+          <ul>
+            {raw.props.map((prop, idx) => (
+              <li key={idx}>
+                <strong>{prop.name ?? 'property'}</strong>
+                {prop.value ? `: ${prop.value}` : null}
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
     </div>

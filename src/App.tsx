@@ -93,6 +93,15 @@ const App: React.FC = () => {
       setSearchResults([]);
       return;
     }
+
+    // Sonderfall: kein Suchtext, aber Gruppenfilter gesetzt → direkt nach groupPath filtern,
+    // ohne MiniSearch-Index. So bekommst du immer alle Controls dieser Gruppe.
+    if (groupFilter && query.trim() === '') {
+      const matches = controls.filter((c) => c.groupPath.includes(groupFilter));
+      setSearchResults(matches);
+      return;
+    }
+
     const { query: runQuery } = buildIndex(controls);
     const results = runQuery(query, groupFilter ? { group: groupFilter } : undefined);
     const mapped = results
@@ -100,6 +109,7 @@ const App: React.FC = () => {
       .filter((record): record is ControlRecord => Boolean(record));
     setSearchResults(mapped);
   }, [controls, query, groupFilter, controlMap]);
+
 
   const groups = useMemo(() => {
     const allPaths = new Set<string>();
