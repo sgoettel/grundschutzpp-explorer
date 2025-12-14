@@ -4,7 +4,7 @@ export interface CatalogControl {
   class?: string;
   props?: Array<{ name?: string; value?: string }>;
   params?: Array<{ id?: string; label?: string; prose?: string }>;
-  parts?: Array<{ name?: string; title?: string; prose?: string }>;
+  parts?: Array<{ id?: string; name?: string; title?: string; prose?: string }>;
   controls?: CatalogControl[];
   [key: string]: unknown;
 }

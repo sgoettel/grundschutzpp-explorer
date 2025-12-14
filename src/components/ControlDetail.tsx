@@ -5,7 +5,6 @@ interface DetailProps {
   control?: ControlRecord;
 }
 
-// Map internal OSCAL property names to human-readable labels
 const PROP_LABELS: Record<string, string> = {
   'alt-identifier': 'Alt-ID',
   effort_level: 'Aufwandsstufe',
@@ -15,38 +14,17 @@ const PROP_LABELS: Record<string, string> = {
   ergebnis: 'Ergebnis',
   präzisierung: 'Präzisierung',
   handlungsworte: 'Handlungswort',
-  modalverb: 'Modalverb'
+  modalverb: 'Modalverb',
 };
 
-// Build a readable main text from the prose parts only
-const buildMainText = (raw: CatalogControl): string => {
-  const proseParts =
-    raw.parts
-      ?.map((p) => p.prose?.trim())
-      .filter((p): p is string => Boolean(p)) ?? [];
-  return proseParts.join('\n\n');
-};
-
-const renderParams = (params?: CatalogControl['params']) => {
-  if (!params?.length) return null;
-  return (
-    <ul>
-      {params.map((param, idx) => (
-        <li key={idx}>
-          {param.label || param.id || 'Parameter'}
-        </li>
-      ))}
-    </ul>
-  );
-};
-
+// Properties (Metadaten) mit Labels rendern
 const renderProps = (props?: CatalogControl['props']) => {
   if (!props?.length) return null;
   return (
     <ul>
       {props.map((prop, idx) => {
-        const name = prop.name || '';
-        const label = PROP_LABELS[name] || name || 'Eigenschaft';
+        const key = prop.name ?? '';
+        const label = (PROP_LABELS[key] ?? key) || 'Eigenschaft';
         const value = prop.value ?? '';
         return (
           <li key={idx}>
@@ -58,11 +36,33 @@ const renderProps = (props?: CatalogControl['props']) => {
   );
 };
 
+// Parameter mit Label anzeigen (Details können wir später noch ausbauen)
+const renderParams = (params?: CatalogControl['params']) => {
+  if (!params?.length) return null;
+  return (
+    <ul>
+      {params.map((param) => (
+        <li key={param.id}>
+          <strong>{param.label || 'Parameter'}:</strong> {param.id}
+        </li>
+      ))}
+    </ul>
+  );
+};
+
 const ControlDetail: React.FC<DetailProps> = ({ control }) => {
-  if (!control) return <div className="detail">Select a control to see details.</div>;
+  if (!control) {
+    return <div className="detail">Select a control to see details.</div>;
+  }
 
   const raw = control.control;
-  const mainText = buildMainText(raw);
+
+  const parts = raw.parts ?? [];
+  const statement = parts.find((p) => p.name === 'statement');
+  const guidance = parts.find((p) => p.name === 'guidance');
+  const otherParts = parts.filter(
+    (p) => p !== statement && p !== guidance
+  );
 
   return (
     <div className="detail" aria-live="polite">
@@ -76,21 +76,33 @@ const ControlDetail: React.FC<DetailProps> = ({ control }) => {
         </div>
       )}
 
-      {mainText && <p>{mainText}</p>}
-
-      {raw.parts?.length ? (
+      {statement?.prose && (
         <section>
-          <h4>Parts</h4>
+          <h4>Statement</h4>
+          <p>{statement.prose}</p>
+        </section>
+      )}
+
+      {guidance?.prose && (
+        <section>
+          <h4>Guidance</h4>
+          <p>{guidance.prose}</p>
+        </section>
+      )}
+
+      {otherParts.length > 0 && (
+        <section>
+          <h4>Weitere Teile</h4>
           <ul>
-            {raw.parts.map((part, idx) => (
-              <li key={idx}>
+            {otherParts.map((part) => (
+              <li key={part.id}>
                 <strong>{part.name || part.title || 'Part'}:</strong>{' '}
                 {part.prose || '–'}
               </li>
             ))}
           </ul>
         </section>
-      ) : null}
+      )}
 
       {raw.params?.length ? (
         <section>
@@ -101,7 +113,7 @@ const ControlDetail: React.FC<DetailProps> = ({ control }) => {
 
       {raw.props?.length ? (
         <section>
-          <h4>Properties</h4>
+          <h4>Eigenschaften</h4>
           {renderProps(raw.props)}
         </section>
       ) : null}
