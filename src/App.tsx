@@ -186,15 +186,13 @@ const App: React.FC = () => {
 
   return (
     <div className="app-shell">
-      <header className="header">
-        <div>
-          <h1>Grundschutz++ OSCAL Explorer</h1>
-          <p>Fetch, search, and export controls directly in the browser.</p>
-        </div>
-        <a href="https://github.com/BSI-Bund/grundschutz" target="_blank" rel="noreferrer">
-          Upstream repository
-        </a>
-      </header>
+        <header className="header">
+          <div>
+            <h1>Grundschutz++ OSCAL Explorer</h1>
+            <p>Fetch, search, and export controls directly in the browser.</p>
+          </div>
+        </header>
+
 
       <SettingsPanel
         catalogUrl={catalogUrl}
@@ -250,12 +248,24 @@ const App: React.FC = () => {
         <ControlDetail control={selectedRecord} />
       </div>
 
-      <footer>
-        <div>
-          Data source: <a href="https://github.com/BSI-Bund/grundschutz" target="_blank" rel="noreferrer">BSI Grundschutz</a>. Please review upstream licensing before reuse.
-        </div>
-        <div>Shareable view: copy the URL after adjusting filters; state is encoded in the hash.</div>
-      </footer>
+        <footer>
+          <div>
+            Data source:{' '}
+            <a
+              href="https://github.com/BSI-Bund/Stand-der-Technik-Bibliothek"
+              target="_blank"
+              rel="noreferrer"
+            >
+              BSI "Stand der Technik Bibliothek" (Grundschutz++ Kompendium)
+            </a>
+            . Please review BSI licensing before reuse.
+          </div>
+          <div>
+            Shareable view: copy the URL after adjusting filters; state is encoded in the hash.
+          </div>
+        </footer>
+
+
     </div>
   );
 };
