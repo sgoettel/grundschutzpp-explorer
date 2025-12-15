@@ -9,3 +9,8 @@ coverage
 # TypeScript build info
 *.tsbuildinfo
 
+src/**/*.js
+src/**/*.js.map
+tsconfig*.tsbuildinfo
+
+
