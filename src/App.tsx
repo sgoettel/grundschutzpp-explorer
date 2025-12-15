@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import SettingsPanel from './components/SettingsPanel.tsx';
+import SettingsPanel from './components/SettingsPanel';
 import SearchBar from './components/SearchBar';
 import ResultsList from './components/ResultsList';
 import ControlDetail from './components/ControlDetail';
@@ -146,7 +146,7 @@ const App: React.FC = () => {
   const selectedRecord = useMemo(() => controlMap.get(selectedId ?? ''), [controlMap, selectedId]);
 
   const fetchAndIndex = async () => {
-console.log('FETCH CLICKED', { catalogUrl });
+
 
     setIsFetching(true);
     setError(null);
@@ -156,8 +156,6 @@ console.log('FETCH CLICKED', { catalogUrl });
       const response = await fetch(catalogUrl);
       if (!response.ok) throw new Error(`Failed to download catalog (${response.status})`);
       const payload = await response.json();
-console.log('metadata raw:', (payload as any)?.catalog?.metadata);
-console.log('catalogMeta:', extractCatalogMeta(payload));
 
       setCatalogMeta(extractCatalogMeta(payload));
 
