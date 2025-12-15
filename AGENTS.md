@@ -54,6 +54,7 @@ Use npm (not pnpm) for compatibility.
   - `.github/workflows/**`
   - `index.html`, `public/**`
   - `README.md` (unless explicitly requested).
+  - Exception: For fixes related to repo hygiene (e.g., removing tracked `src/**/*.js` build artifacts and updating `.gitignore`), changes outside `src/**` are allowed, but must be minimal and explicitly justified.
 - Do **not** run `npm install`, `npm test`, `npm run build` in your sandbox.  
   I will run `npm ci && npx vitest run && npm run build` locally (via Docker).
 - Output should be a minimal, reviewable diff. Prefer small, focused changes over broad refactors.

@@ -18,6 +18,34 @@ interface HashState {
   id?: string;
 }
 
+type CatalogMeta = {
+  title?: string;
+  version?: string;
+  lastModified?: string;
+  oscalVersion?: string;
+};
+
+const extractCatalogMeta = (payload: unknown): CatalogMeta => {
+  const root = payload as any;
+
+  // Support both shapes:
+  // 1) { catalog: { metadata: ... } }
+  // 2) { metadata: ... }  (falls irgendwo schon "catalog" direkt gecached/übergeben wird)
+  const catalog = root?.catalog ?? root;
+  const meta = catalog?.metadata;
+
+  if (!meta || typeof meta !== 'object') return {};
+
+  return {
+    title: typeof meta.title === 'string' ? meta.title : undefined,
+    version: typeof meta.version === 'string' ? meta.version : undefined,
+    lastModified: typeof meta['last-modified'] === 'string' ? meta['last-modified'] : undefined,
+    oscalVersion: typeof meta['oscal-version'] === 'string' ? meta['oscal-version'] : undefined,
+  };
+};
+
+
+
 const readHash = (): HashState => {
   const raw = window.location.hash.replace(/^#\/?/, '');
   const params = new URLSearchParams(raw.startsWith('?') ? raw.slice(1) : raw);
@@ -49,6 +77,7 @@ const App: React.FC = () => {
   const [status, setStatus] = useState<string>('');
   const [isFetching, setIsFetching] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<number | undefined>(undefined);
+  const [catalogMeta, setCatalogMeta] = useState<CatalogMeta>({});
   const [searchResults, setSearchResults] = useState<ControlRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | undefined>(initialHash.id);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -75,18 +104,22 @@ const App: React.FC = () => {
     writeHash({ url: catalogUrl, q: query, group: groupFilter, id: selectedId });
   }, [catalogUrl, query, groupFilter, selectedId]);
 
-  useEffect(() => {
-    const restoreFromCache = async () => {
-      const cached = await loadCatalog(catalogUrl);
-      if (cached) {
-        setLastUpdated(cached.fetchedAt);
-        const parsed = parseCatalog(cached.payload);
-        setWarnings(parsed.warnings);
-        setControls(parsed.controls);
-      }
-    };
-    restoreFromCache();
-  }, [catalogUrl]);
+    useEffect(() => {
+      const restoreFromCache = async () => {
+        setCatalogMeta({});
+        setLastUpdated(undefined);
+        const cached = await loadCatalog(catalogUrl);
+        if (cached) {
+          setLastUpdated(cached.fetchedAt);
+          setCatalogMeta(extractCatalogMeta(cached.payload));
+          const parsed = parseCatalog(cached.payload);
+          setWarnings(parsed.warnings);
+          setControls(parsed.controls);
+        }
+      };
+      restoreFromCache();
+    }, [catalogUrl]);
+
 
   useEffect(() => {
     if (!controls.length) {
@@ -94,13 +127,6 @@ const App: React.FC = () => {
       return;
     }
 
-    // Sonderfall: kein Suchtext, aber Gruppenfilter gesetzt → direkt nach groupPath filtern,
-    // ohne MiniSearch-Index. So bekommst du immer alle Controls dieser Gruppe.
-    if (groupFilter && query.trim() === '') {
-      const matches = controls.filter((c) => c.groupPath.includes(groupFilter));
-      setSearchResults(matches);
-      return;
-    }
 
     const { query: runQuery } = buildIndex(controls);
     const results = runQuery(query, groupFilter ? { group: groupFilter } : undefined);
@@ -120,6 +146,8 @@ const App: React.FC = () => {
   const selectedRecord = useMemo(() => controlMap.get(selectedId ?? ''), [controlMap, selectedId]);
 
   const fetchAndIndex = async () => {
+
+
     setIsFetching(true);
     setError(null);
     setWarnings([]);
@@ -128,6 +156,9 @@ const App: React.FC = () => {
       const response = await fetch(catalogUrl);
       if (!response.ok) throw new Error(`Failed to download catalog (${response.status})`);
       const payload = await response.json();
+
+      setCatalogMeta(extractCatalogMeta(payload));
+
       await saveCatalog(catalogUrl, payload);
       setStatus('Parsing catalog…');
       const parsed = parseCatalog(payload);
@@ -144,19 +175,21 @@ const App: React.FC = () => {
         .map((res) => parsed.controls.find((c) => c.id === String(res.id)))
         .filter((record): record is ControlRecord => Boolean(record));
       setSearchResults(mapped);
-    } catch (err) {
-      const cached = await loadCatalog(catalogUrl);
-      if (cached) {
-        const parsed = parseCatalog(cached.payload);
-        setWarnings(parsed.warnings.concat('Live fetch failed; loaded cached copy.'));
-        setControls(parsed.controls);
-        setLastUpdated(cached.fetchedAt);
+      } catch (err) {
+        const cached = await loadCatalog(catalogUrl);
+        if (cached) {
+          setCatalogMeta(extractCatalogMeta(cached.payload));
+          const parsed = parseCatalog(cached.payload);
+          setWarnings(parsed.warnings.concat('Live fetch failed; loaded cached copy.'));
+          setControls(parsed.controls);
+          setLastUpdated(cached.fetchedAt);
+        }
+        setError(err instanceof Error ? err.message : 'Unknown error while fetching catalog');
+      } finally {
+        setStatus('');
+        setIsFetching(false);
       }
-      setError(err instanceof Error ? err.message : 'Unknown error while fetching catalog');
-    } finally {
-      setStatus('');
-      setIsFetching(false);
-    }
+
   };
 
   const toggleSelected = (id: string) => {
@@ -208,10 +241,22 @@ const App: React.FC = () => {
         catalogUrl={catalogUrl}
         onChangeUrl={setCatalogUrl}
         onFetch={fetchAndIndex}
-        onClearCache={() => clearCache().then(() => setWarnings(['Cache cleared.']))}
+        onClearCache={() =>
+          clearCache()
+            .then(() => setWarnings(['Cache cleared.']))
+            .catch((err) =>
+              setWarnings([
+                err instanceof Error && err.message.includes('blocked')
+                  ? 'Cache not fully cleared (blocked). Close other tabs and try again.'
+                  : 'Cache could not be fully cleared. Please try again.',
+              ])
+            )
+        }
         isFetching={isFetching}
         lastUpdated={lastUpdated}
+        catalogMeta={catalogMeta}
       />
+
 
       {status && <Progress label={status} />}
       {error && <div className="notice error">{error}</div>}
