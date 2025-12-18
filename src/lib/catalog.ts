@@ -9,14 +9,12 @@ const DEFAULT_UNKNOWN_TITLE = 'Untitled control';
 const collectText = (control: CatalogControl): string => {
   const textParts: string[] = [];
 
-  // title kommt separat in flattenControls nach vorne
+  // title comes in flattenControls at the begining
   if (control.class) {
     textParts.push(control.class);
   }
 
-  // Nur „inhaltliche“ Props in den Fließtext aufnehmen:
-  // - tags: ja (für Suche/Wiederfinden)
-  // - alt-identifier, effort_level usw.: nein (nur im Metadaten-Block)
+  // - alt-identifier, effort_level only in metadata
   control.props?.forEach((prop) => {
     if (prop.name === 'tags' && prop.value) {
       textParts.push(prop.value);
@@ -28,11 +26,19 @@ const collectText = (control: CatalogControl): string => {
     if (param.prose) textParts.push(param.prose);
   });
 
-  control.parts?.forEach((part) => {
-    if (part.title) textParts.push(part.title);
-    if (part.name) textParts.push(part.name);
-    if (part.prose) textParts.push(part.prose);
-  });
+control.parts?.forEach((part) => {
+  if (part.title) textParts.push(part.title);
+
+  // part.name contains OSCAL structure tokens (e.g. "statement", "guidance").
+  // therefore we skip them (case-insensitiv).
+  const name = typeof part.name === 'string' ? part.name.toLowerCase() : '';
+  if (name && name !== 'statement' && name !== 'guidance') {
+    textParts.push(part.name as string);
+  }
+
+  if (part.prose) textParts.push(part.prose);
+});
+
 
   return textParts.join(' ').trim();
 };

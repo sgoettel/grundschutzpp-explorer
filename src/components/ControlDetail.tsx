@@ -22,7 +22,7 @@ const EFFORT_SHORT: Record<string, string> = {
   '0': 'zwingend/nicht bewertet',
   '1': 'Quick Win (z.B. selber Tag)',
   '2': 'i.d.R. ≤ 1 Woche',
-  '3': 'Wochen–Monate',
+  '3': 'Wochen bis Monate',
   '4': 'längerfristig/Experten',
   '5': 'komplex/Planung',
 };
@@ -119,11 +119,11 @@ const renderParams = (
         return (
           <li key={param.id}>
             <strong>{shownLabel}</strong>{' '}
-            <span style={{ opacity: 0.75 }}>(Platzhalter)</span>
+            <span style={{ opacity: 0.75 }}>(Konkretisierung)</span>
 
             <details style={{ display: 'inline-block', marginLeft: '0.5rem' }}>
               <summary style={{ cursor: 'pointer', opacity: 0.75 }}>
-                technische Details
+                Technische Angaben
               </summary>
               <div style={{ marginTop: '0.25rem' }}>
                 <span style={{ opacity: 0.8 }}>Param-ID:</span>{' '}
@@ -161,6 +161,10 @@ const ControlDetail: React.FC<DetailProps> = ({ control }) => {
   const effortValue = getPropValue(raw, 'effort_level');
   const effortLegend = effortValue ? EFFORT_SHORT[effortValue] ?? 'unbekannt' : undefined;
 
+  const controlClass = raw.class ? String(raw.class).trim() : undefined;
+  const showClassBadge = Boolean(controlClass) && controlClass !== 'normal-SdT';
+
+
   // --- B) Use resolved prose for display ---
   // Track which params are actually referenced via {{ insert: param, ... }}
   const usedParamIds = new Set<string>();
@@ -188,76 +192,65 @@ const ControlDetail: React.FC<DetailProps> = ({ control }) => {
       </h3>
 
 
-      {tags.length > 0 && (
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '0.25rem',
-            marginBottom: '0.25rem',
-          }}
-        >
-          {tags.map((tag) => (
-            <span className="badge" key={tag}>
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {(altIdentifier || effortValue) && (
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.25rem',
-            marginBottom: '0.5rem',
-          }}
-        >
-          {altIdentifier ? (
-            <div style={{ opacity: 0.8, fontSize: '0.9em' }}>
-              <strong>GUID:</strong> <code>{altIdentifier}</code>
-            </div>
-          ) : null}
-          {effortValue ? (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                fontSize: '0.95em',
-              }}
-            >
-              <span className="badge">Aufwandsstufe {effortValue}</span>
-              <span style={{ opacity: 0.85 }}>{effortLegend}</span>
-            </div>
-          ) : null}
-        </div>
-      )}
-
       {control.groupPath.length > 0 && (
-        <div style={{ marginBottom: '0.5rem' }}>
-          Pfad: {control.groupPath.join(' › ')}
-        </div>
+        <nav aria-label="Breadcrumb" style={{ margin: '0.25rem 0 0.5rem', opacity: 0.75 }}>
+          {control.groupPath.join(' › ')}
+        </nav>
       )}
+
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '0.25rem',
+          alignItems: 'center',
+          marginBottom: '0.75rem',
+        }}
+      >
+        {tags.map((tag) => (
+          <span className="badge" key={tag}>
+            {tag}
+          </span>
+        ))}
+
+        {effortValue ? (
+          <span className="badge">
+            Aufwandsstufe: {effortValue}
+            {effortLegend ? ` (${effortLegend})` : ''}
+          </span>
+        ) : null}
+
+
+        {showClassBadge ? <span className="badge">Niveau {controlClass}</span> : null}
+      </div>
+
+      {altIdentifier ? (
+        <details style={{ marginBottom: '0.75rem' }}>
+          <summary style={{ cursor: 'pointer', opacity: 0.75 }}>Technische Angaben</summary>
+          <div style={{ marginTop: '0.25rem', fontSize: '0.9em' }}>
+            <strong>GUID:</strong> <code>{altIdentifier}</code>
+          </div>
+        </details>
+      ) : null}
+
 
       {statementText && (
         <section>
-          <h4>Statement</h4>
+          <h4>Anforderung</h4>
           <p>{statementText}</p>
         </section>
       )}
 
       {guidanceText && (
         <section>
-          <h4>Guidance</h4>
+          <h4>Umsetzungshinweis</h4>
           <p>{guidanceText}</p>
         </section>
       )}
 
       {otherPartItems.length > 0 && (
         <section>
-          <h4>Weitere Teile</h4>
+          <h4>Weitere Inhalte</h4>
           <ul>
             {otherPartItems.map(({ part, prose }, idx) => (
               <li key={part.id ?? `${control.id}-part-${idx}`}>
@@ -269,22 +262,19 @@ const ControlDetail: React.FC<DetailProps> = ({ control }) => {
         </section>
       )}
 
-
-
       {paramsBlock ? (
         <section>
-          <h4>Platzhalter</h4>
+          <h4>Konkretisierungen</h4>
           <div style={{ opacity: 0.8, marginBottom: '0.25rem' }}>
-            müssen organisationsspezifisch konkretisiert werden
+            organisationsspezifisch festzulegen
           </div>
           {paramsBlock}
         </section>
       ) : null}
 
-
       {propsList ? (
         <section>
-          <h4>Eigenschaften</h4>
+          <h4>Metadaten</h4>
           {propsList}
         </section>
       ) : null}
