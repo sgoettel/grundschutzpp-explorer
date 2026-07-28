@@ -37,7 +37,7 @@ const splitTags = (raw?: string | null) =>
   raw?.split(',').map((tag) => tag.trim()).filter(Boolean) ?? [];
 
 // --- A) Resolve OSCAL prose inserts (currently only insert:param) ---
-const INSERT_PARAM_RX = /\{\{\s*insert:\s*param\s*,\s*([^\s\}]+)\s*\}\}/g;
+const INSERT_PARAM_RX = /\{\{\s*insert:\s*param\s*,\s*([^\s}]+)\s*\}\}/g;
 
 const buildParamLabelMap = (params?: CatalogControl['params']): Map<string, string> => {
   const map = new Map<string, string>();

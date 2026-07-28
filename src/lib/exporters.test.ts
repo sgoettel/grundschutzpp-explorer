@@ -7,14 +7,16 @@ const sample: ControlRecord[] = [
     title: 'First Control',
     groupPath: ['Group A'],
     fullText: 'First control prose',
-    control: {}
+    control: {},
+    metadata: { known: [], unknown: [] }
   },
   {
     id: 'CTRL-2',
     title: 'Second Control',
     groupPath: ['Group B', 'Sub B'],
     fullText: 'Second control prose; with delimiter',
-    control: {}
+    control: {},
+    metadata: { known: [], unknown: [] }
   }
 ];
 

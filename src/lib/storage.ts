@@ -72,7 +72,7 @@ export const saveCatalog = async (url: string, payload: unknown): Promise<void> 
   try {
     await idbPut(entry);
     return;
-  } catch (err) {
+  } catch {
     // fall through to localStorage
   }
 
@@ -93,7 +93,7 @@ export const loadCatalog = async (url: string): Promise<CatalogCacheEntry | null
   try {
     const fromIdb = await idbGet(url);
     if (fromIdb) return fromIdb;
-  } catch (err) {
+  } catch {
     // fall through to localStorage
   }
 
@@ -106,7 +106,7 @@ export const loadCatalog = async (url: string): Promise<CatalogCacheEntry | null
     const parsed = JSON.parse(raw) as Partial<CatalogCacheEntry>;
     if (!parsed || typeof parsed !== 'object') return null;
 
-    const fetchedAtRaw = (parsed as any).fetchedAt;
+    const fetchedAtRaw = parsed.fetchedAt;
     const fetchedAt =
       typeof fetchedAtRaw === 'number' ? fetchedAtRaw : Number(fetchedAtRaw);
 
@@ -116,7 +116,7 @@ export const loadCatalog = async (url: string): Promise<CatalogCacheEntry | null
     return {
       url,
       fetchedAt,
-      payload: (parsed as any).payload,
+      payload: parsed.payload,
     };
   } catch (err) {
     console.warn('Unable to read/parse localStorage cache', err);
@@ -151,5 +151,4 @@ export const clearCache = async (): Promise<void> => {
     }
   }
 };
-
 

@@ -1,0 +1,68 @@
+{
+  "catalog": {
+    "title": "Projection Catalog",
+    "groups": [
+      {
+        "id": "practice-1",
+        "title": "Practice One",
+        "groups": [
+          {
+            "id": "topic-1",
+            "title": "Topic One",
+            "controls": [
+              {
+                "id": "APP.1",
+                "title": "Projected requirement",
+                "class": "normal-SdT",
+                "remarks": "Control remarks stay on the raw source object.",
+                "future-control-field": {
+                  "preserved": true
+                },
+                "props": [
+                  {
+                    "name": "sec_level",
+                    "value": "Basis",
+                    "ns": "https://bsi.bund.de/ns/grundschutz-plusplus"
+                  },
+                  {
+                    "name": "future_control_prop",
+                    "value": "control fallback",
+                    "ns": "https://example.test/ns/future"
+                  }
+                ],
+                "parts": [
+                  {
+                    "id": "statement-1",
+                    "name": "statement",
+                    "prose": "The complete requirement.",
+                    "remarks": "Statement remarks stay on the raw Part.",
+                    "props": [
+                      {
+                        "name": "modal_verb",
+                        "value": "MUSS",
+                        "ns": "https://bsi.bund.de/ns/grundschutz-plusplus"
+                      }
+                    ],
+                    "parts": [
+                      {
+                        "id": "item-1",
+                        "name": "item",
+                        "prose": "Nested source content.",
+                        "props": [
+                          {
+                            "name": "future_part_prop",
+                            "value": "part fallback"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

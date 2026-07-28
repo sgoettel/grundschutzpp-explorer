@@ -1,10 +1,85 @@
-import { CatalogControl, CatalogGroup, CatalogParsingResult, CatalogRoot, ControlRecord } from './types';
+import {
+  CatalogControl,
+  CatalogGroup,
+  CatalogParsingResult,
+  CatalogPart,
+  CatalogProp,
+  CatalogRoot,
+  ControlMetadataProjection,
+  ControlRecord,
+  ProjectedProp
+} from './types';
 
 interface ParseContext {
   warnings: string[];
 }
 
 const DEFAULT_UNKNOWN_TITLE = 'Untitled control';
+
+const KNOWN_PROP_NAMES = new Set([
+  'action_word',
+  'alt-identifier',
+  'documentation',
+  'effort_level',
+  'modal_verb',
+  'result',
+  'result_specification',
+  'sec_level',
+  'tags'
+]);
+
+const projectProp = (
+  prop: CatalogProp,
+  sourceLevel: ProjectedProp['sourceLevel'],
+  sourcePath: string
+): ProjectedProp => ({
+  name: prop.name,
+  value: prop.value,
+  namespace: prop.ns,
+  sourceLevel,
+  sourcePath,
+  raw: prop
+});
+
+const partPathSegment = (part: CatalogPart): string => {
+  const label = part.name?.trim() || part.title?.trim() || part.id?.trim();
+  return label ? `${label}-Part` : 'Part';
+};
+
+const addProjectedProp = (
+  projection: ControlMetadataProjection,
+  prop: CatalogProp,
+  sourceLevel: ProjectedProp['sourceLevel'],
+  path: string[]
+): void => {
+  const target = prop.name && KNOWN_PROP_NAMES.has(prop.name)
+    ? projection.known
+    : projection.unknown;
+  target.push(projectProp(prop, sourceLevel, path.join(' → ')));
+};
+
+const projectPartProps = (
+  parts: CatalogPart[] | undefined,
+  parentPath: string[],
+  projection: ControlMetadataProjection
+): void => {
+  parts?.forEach((part) => {
+    const partPath = [...parentPath, partPathSegment(part)];
+    part.props?.forEach((prop) => {
+      addProjectedProp(projection, prop, 'part', [...partPath, 'Prop']);
+    });
+    projectPartProps(part.parts, partPath, projection);
+  });
+};
+
+const projectMetadata = (control: CatalogControl): ControlMetadataProjection => {
+  const projection: ControlMetadataProjection = { known: [], unknown: [] };
+  control.props?.forEach((prop) => {
+    addProjectedProp(projection, prop, 'control', ['Control', 'Prop']);
+  });
+  projectPartProps(control.parts, ['Control'], projection);
+  return projection;
+};
 
 const collectText = (control: CatalogControl): string => {
   const textParts: string[] = [];
@@ -66,7 +141,8 @@ const flattenControls = (
       title,
       groupPath,
       fullText,
-      control
+      control,
+      metadata: projectMetadata(control)
     };
 
     const nested = flattenControls(control.controls, [...groupPath, title], ctx);
@@ -98,9 +174,9 @@ export const parseCatalog = (input: unknown): CatalogParsingResult => {
       ...(catalog.groups?.flatMap((group) => walkGroup(group, [], ctx)) ?? [])
     ];
 
-    return { controls, warnings: ctx.warnings };
+    return { source: maybeRoot, controls, warnings: ctx.warnings };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown parsing error';
-    return { controls: [], warnings: [message] };
+    return { source: null, controls: [], warnings: [message] };
   }
 };

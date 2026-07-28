@@ -17,14 +17,16 @@ describe('buildIndex', () => {
         title: 'Group Policy A',
         fullText: 'policy for group A',
         groupPath: ['Group'],
-        control: {} as unknown as ControlRecord['control']
+        control: {} as unknown as ControlRecord['control'],
+        metadata: { known: [], unknown: [] }
       },
       {
         id: 'B',
         title: 'Other Policy B',
         fullText: 'policy for other group',
         groupPath: ['Other'],
-        control: {} as unknown as ControlRecord['control']
+        control: {} as unknown as ControlRecord['control'],
+        metadata: { known: [], unknown: [] }
       }
     ];
 
@@ -35,4 +37,3 @@ describe('buildIndex', () => {
     expect(ids(query('policy', { group: 'Group' }))).toEqual(['A']);
   });
 });
-

@@ -26,7 +26,10 @@ type CatalogMeta = {
 };
 
 const extractCatalogMeta = (payload: unknown): CatalogMeta => {
-  const root = payload as any;
+  const root = payload as {
+    catalog?: { metadata?: Record<string, unknown> };
+    metadata?: Record<string, unknown>;
+  } | null;
 
   // Support both shapes:
   // 1) { catalog: { metadata: ... } }
