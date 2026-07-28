@@ -13,4 +13,6 @@ src/**/*.js
 src/**/*.js.map
 tsconfig*.tsbuildinfo
 
+# Local agent instructions
+/AGENTS.md
 
