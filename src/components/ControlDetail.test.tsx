@@ -112,4 +112,80 @@ describe('ControlDetail', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText(/Niveau normal-SdT/)).not.toBeInTheDocument();
   });
+
+  it('renders every direct and nested statement and guidance in its fachlich section', () => {
+    const record: ControlRecord = {
+      id: 'APP.3',
+      title: 'Vollständige Inhalte',
+      groupPath: ['Organisation', 'Regelungen'],
+      fullText: '',
+      control: {
+        parts: [
+          {
+            name: 'statement',
+            prose: 'Erste Anforderung.',
+            parts: [
+              {
+                name: 'item',
+                title: 'Vertiefung',
+                prose: 'Verschachtelte Anforderung.'
+              }
+            ]
+          },
+          {
+            name: 'statement',
+            prose: 'Zweite Anforderung.'
+          },
+          {
+            name: 'guidance',
+            prose: 'Erster Umsetzungshinweis.',
+            parts: [
+              {
+                name: 'item',
+                prose: 'Verschachtelter Umsetzungshinweis.'
+              }
+            ]
+          },
+          {
+            name: 'guidance',
+            prose: 'Zweiter Umsetzungshinweis.'
+          }
+        ]
+      },
+      metadata: { known: [], unknown: [] }
+    };
+
+    render(<ControlDetail control={record} />);
+
+    const requirementSection = screen
+      .getByRole('heading', { name: 'Anforderung' })
+      .closest('section');
+    const guidanceSection = screen
+      .getByRole('heading', { name: 'Umsetzungshinweis' })
+      .closest('section');
+
+    expect(requirementSection).not.toBeNull();
+    expect(guidanceSection).not.toBeNull();
+
+    const requirements = within(requirementSection as HTMLElement);
+    expect(requirements.getByText('Erste Anforderung.')).toBeInTheDocument();
+    expect(requirements.getByText('Zweite Anforderung.')).toBeInTheDocument();
+    expect(
+      requirements.getByText('Verschachtelte Anforderung.')
+    ).toBeInTheDocument();
+    expect(
+      requirements.getByRole('heading', { name: 'Vertiefung' })
+    ).toBeInTheDocument();
+
+    const guidance = within(guidanceSection as HTMLElement);
+    expect(
+      guidance.getByText('Erster Umsetzungshinweis.')
+    ).toBeInTheDocument();
+    expect(
+      guidance.getByText('Zweiter Umsetzungshinweis.')
+    ).toBeInTheDocument();
+    expect(
+      guidance.getByText('Verschachtelter Umsetzungshinweis.')
+    ).toBeInTheDocument();
+  });
 });
