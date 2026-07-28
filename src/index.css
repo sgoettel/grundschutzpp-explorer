@@ -90,6 +90,10 @@ button {
   gap: 1rem;
 }
 
+.results.single-column {
+  grid-template-columns: 1fr;
+}
+
 @media (max-width: 960px) {
   .results {
     grid-template-columns: 1fr;
@@ -128,6 +132,88 @@ button {
 .result-item button:focus-visible {
   outline: 2px solid #2563eb;
   outline-offset: 2px;
+}
+
+.practice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.practice-card {
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+}
+
+.practice-card h3 {
+  margin-top: 0;
+}
+
+.practice-card h3 button {
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.practice-card h3 button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 3px;
+}
+
+.derived-count {
+  margin-bottom: 0.25rem;
+}
+
+.derived-label {
+  color: #475569;
+  font-size: 0.8rem;
+}
+
+.navigation-back {
+  padding: 0;
+  border: 0;
+  color: #334155;
+  background: none;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.requirement-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.requirement-list li {
+  padding: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+}
+
+.requirement-list button {
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.requirement-list p {
+  margin-bottom: 0;
+  color: #334155;
 }
 
 .badge {

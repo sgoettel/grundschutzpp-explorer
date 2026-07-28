@@ -3,6 +3,7 @@ import SettingsPanel from './components/SettingsPanel';
 import SearchBar from './components/SearchBar';
 import ResultsList from './components/ResultsList';
 import ControlDetail from './components/ControlDetail';
+import PracticeNavigator from './components/PracticeNavigator';
 import Progress from './components/Progress';
 import { DEFAULT_CATALOG_URL } from './config';
 import { buildIndex } from './lib/search';
@@ -10,13 +11,15 @@ import type { SearchHit } from './lib/search';
 import { parseCatalog } from './lib/catalog';
 import { exportCsv, exportMarkdown } from './lib/exporters';
 import { clearCache, loadCatalog, saveCatalog } from './lib/storage';
-import { ControlRecord } from './lib/types';
+import type { ControlRecord, PracticeRecord } from './lib/types';
 
 interface HashState {
   url?: string;
   q?: string;
   group?: string;
   id?: string;
+  practice?: string;
+  topic?: string;
 }
 
 type CatalogMeta = {
@@ -66,6 +69,8 @@ const writeHash = (state: HashState) => {
   if (state.q) params.set('q', state.q);
   if (state.group) params.set('group', state.group);
   if (state.id) params.set('id', state.id);
+  if (state.practice) params.set('practice', state.practice);
+  if (state.topic) params.set('topic', state.topic);
   const hash = params.toString();
   window.location.hash = hash ? `/?${hash}` : '#/';
 };
@@ -76,6 +81,7 @@ const App: React.FC = () => {
   const [query, setQuery] = useState(initialHash.q || '');
   const [groupFilter, setGroupFilter] = useState(initialHash.group || '');
   const [controls, setControls] = useState<ControlRecord[]>([]);
+  const [practices, setPractices] = useState<PracticeRecord[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string>('');
@@ -84,6 +90,12 @@ const App: React.FC = () => {
   const [catalogMeta, setCatalogMeta] = useState<CatalogMeta>({});
   const [searchResults, setSearchResults] = useState<SearchHit[]>([]);
   const [selectedId, setSelectedId] = useState<string | undefined>(initialHash.id);
+  const [selectedPracticeId, setSelectedPracticeId] = useState<
+    string | undefined
+  >(initialHash.practice);
+  const [selectedTopicId, setSelectedTopicId] = useState<string | undefined>(
+    initialHash.topic
+  );
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const controlMap = useMemo(() => {
@@ -96,17 +108,33 @@ const App: React.FC = () => {
     const onHashChange = () => {
       const state = readHash();
       if (state.url) setCatalogUrl(state.url);
-      if (state.q !== undefined) setQuery(state.q);
-      if (state.group !== undefined) setGroupFilter(state.group);
-      if (state.id !== undefined) setSelectedId(state.id);
+      setQuery(state.q ?? '');
+      setGroupFilter(state.group ?? '');
+      setSelectedId(state.id);
+      setSelectedPracticeId(state.practice);
+      setSelectedTopicId(state.topic);
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
   useEffect(() => {
-    writeHash({ url: catalogUrl, q: query, group: groupFilter, id: selectedId });
-  }, [catalogUrl, query, groupFilter, selectedId]);
+    writeHash({
+      url: catalogUrl,
+      q: query,
+      group: groupFilter,
+      id: selectedId,
+      practice: selectedPracticeId,
+      topic: selectedTopicId
+    });
+  }, [
+    catalogUrl,
+    query,
+    groupFilter,
+    selectedId,
+    selectedPracticeId,
+    selectedTopicId
+  ]);
 
     useEffect(() => {
       const restoreFromCache = async () => {
@@ -119,6 +147,7 @@ const App: React.FC = () => {
           const parsed = parseCatalog(cached.payload);
           setWarnings(parsed.warnings);
           setControls(parsed.controls);
+          setPractices(parsed.practices);
         }
       };
       restoreFromCache();
@@ -168,6 +197,7 @@ const App: React.FC = () => {
         throw new Error('Catalog parsed but no controls were found.');
       }
       setControls(parsed.controls);
+      setPractices(parsed.practices);
       setLastUpdated(Date.now());
       setStatus('Indexing…');
       const { query: runQuery } = buildIndex(parsed.controls);
@@ -180,6 +210,7 @@ const App: React.FC = () => {
           const parsed = parseCatalog(cached.payload);
           setWarnings(parsed.warnings.concat('Live fetch failed; loaded cached copy.'));
           setControls(parsed.controls);
+          setPractices(parsed.practices);
           setLastUpdated(cached.fetchedAt);
         }
         setError(err instanceof Error ? err.message : 'Unknown error while fetching catalog');
@@ -224,6 +255,26 @@ const App: React.FC = () => {
   const handleExportMarkdown = () => {
     downloadFile(exportMarkdown(recordsForExport), 'grundschutz-controls.md', 'text/markdown');
   };
+
+  const handleQueryChange = (value: string) => {
+    setQuery(value);
+    if (!value.trim()) {
+      setSelectedPracticeId(undefined);
+      setSelectedTopicId(undefined);
+    }
+  };
+
+  const handleSelectPractice = (practiceId: string) => {
+    setSelectedPracticeId(practiceId || undefined);
+    setSelectedTopicId(undefined);
+  };
+
+  const handleSelectTopic = (practiceId: string, topicId: string) => {
+    setSelectedPracticeId(practiceId);
+    setSelectedTopicId(topicId || undefined);
+  };
+
+  const isSearchMode = Boolean(query.trim() || groupFilter);
 
   return (
     <div className="app-shell">
@@ -270,36 +321,53 @@ const App: React.FC = () => {
         query={query}
         groupFilter={groupFilter}
         groups={groups}
-        onQueryChange={setQuery}
+        onQueryChange={handleQueryChange}
         onGroupChange={setGroupFilter}
       />
 
-      <div className="actions" style={{ margin: '0.75rem 0' }}>
-        <button type="button" onClick={selectAllVisible} disabled={!searchResults.length}>
-          Select all filtered ({searchResults.length})
-        </button>
-        <button type="button" onClick={() => setSelectedIds(new Set())} disabled={!selectedIds.size}>
-          Clear selection
-        </button>
-        <button type="button" onClick={handleExportCsv} disabled={!searchResults.length}>
-          Export CSV
-        </button>
-        <button type="button" onClick={handleExportMarkdown} disabled={!searchResults.length}>
-          Export Markdown
-        </button>
-        <span aria-live="polite">Selected: {selectedIds.size || 'none'}</span>
-      </div>
+      {isSearchMode ? (
+        <>
+          <div className="actions" style={{ margin: '0.75rem 0' }}>
+            <button type="button" onClick={selectAllVisible} disabled={!searchResults.length}>
+              Select all filtered ({searchResults.length})
+            </button>
+            <button type="button" onClick={() => setSelectedIds(new Set())} disabled={!selectedIds.size}>
+              Clear selection
+            </button>
+            <button type="button" onClick={handleExportCsv} disabled={!searchResults.length}>
+              Export CSV
+            </button>
+            <button type="button" onClick={handleExportMarkdown} disabled={!searchResults.length}>
+              Export Markdown
+            </button>
+            <span aria-live="polite">Selected: {selectedIds.size || 'none'}</span>
+          </div>
 
-      <div className="results">
-        <ResultsList
-          results={searchResults}
-          selectedId={selectedId}
-          selectedIds={selectedIds}
-          onSelect={setSelectedId}
-          onToggleSelected={toggleSelected}
-        />
-        <ControlDetail control={selectedRecord} />
-      </div>
+          <div className="results">
+            <ResultsList
+              results={searchResults}
+              selectedId={selectedId}
+              selectedIds={selectedIds}
+              onSelect={setSelectedId}
+              onToggleSelected={toggleSelected}
+            />
+            <ControlDetail control={selectedRecord} />
+          </div>
+        </>
+      ) : (
+        <div className={`results${selectedRecord ? '' : ' single-column'}`}>
+          <PracticeNavigator
+            practices={practices}
+            controls={controls}
+            selectedPracticeId={selectedPracticeId}
+            selectedTopicId={selectedTopicId}
+            onSelectPractice={handleSelectPractice}
+            onSelectTopic={handleSelectTopic}
+            onSelectControl={setSelectedId}
+          />
+          {selectedRecord ? <ControlDetail control={selectedRecord} /> : null}
+        </div>
+      )}
 
         <footer>
           <div>
