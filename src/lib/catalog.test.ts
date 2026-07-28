@@ -96,4 +96,67 @@ describe('parseCatalog', () => {
     expect(fullText).toContain('MUSS');
     expect(fullText).not.toContain('modal_verb');
   });
+
+  it('projects practices and topics with descriptions and control references', () => {
+    const source = {
+      catalog: {
+        groups: [
+          {
+            id: 'practice-organisation',
+            title: 'Organisation',
+            parts: [
+              {
+                name: 'overview',
+                prose: 'Organisation wirksam gestalten.'
+              }
+            ],
+            groups: [
+              {
+                id: 'topic-regelungen',
+                title: 'Regelungen',
+                parts: [
+                  {
+                    name: 'overview',
+                    prose: 'Verbindliche Regelungen schaffen.'
+                  }
+                ],
+                controls: [
+                  {
+                    id: 'ORG.1',
+                    title: 'Regelungen festlegen',
+                    controls: [
+                      {
+                        id: 'ORG.1.1',
+                        title: 'Regelungen prüfen'
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    };
+
+    const result = parseCatalog(source);
+
+    expect(result.practices).toHaveLength(1);
+    const practice = result.practices?.[0];
+    const topic = practice?.topics[0];
+    expect(practice).toMatchObject({
+      id: 'practice-organisation',
+      title: 'Organisation',
+      description: 'Organisation wirksam gestalten.',
+      directControlIds: []
+    });
+    expect(practice?.raw).toBe(source.catalog.groups[0]);
+    expect(topic).toMatchObject({
+      id: 'topic-regelungen',
+      title: 'Regelungen',
+      description: 'Verbindliche Regelungen schaffen.',
+      controlIds: ['ORG.1', 'ORG.1.1']
+    });
+    expect(topic?.raw).toBe(source.catalog.groups[0].groups[0]);
+  });
 });

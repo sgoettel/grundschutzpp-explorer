@@ -38,6 +38,7 @@ export interface CatalogControl {
 export interface CatalogGroup {
   id?: string;
   title?: string;
+  parts?: CatalogPart[];
   controls?: CatalogControl[];
   groups?: CatalogGroup[];
   [key: string]: unknown;
@@ -76,8 +77,26 @@ export interface ControlMetadataProjection {
   unknown: ProjectedProp[];
 }
 
+export interface TopicRecord {
+  id: string;
+  title: string;
+  description?: string;
+  controlIds: string[];
+  raw: CatalogGroup;
+}
+
+export interface PracticeRecord {
+  id: string;
+  title: string;
+  description?: string;
+  directControlIds: string[];
+  topics: TopicRecord[];
+  raw: CatalogGroup;
+}
+
 export interface CatalogParsingResult {
   source: CatalogRoot | null;
   controls: ControlRecord[];
+  practices: PracticeRecord[];
   warnings: string[];
 }

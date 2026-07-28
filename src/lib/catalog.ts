@@ -7,6 +7,7 @@ import {
   CatalogRoot,
   ControlMetadataProjection,
   ControlRecord,
+  PracticeRecord,
   ProjectedProp
 } from './types';
 import { resolveParameterInserts } from './parameters';
@@ -109,6 +110,47 @@ const collectText = (
   ].join(' ').trim();
 };
 
+const collectControlIds = (
+  controls: CatalogControl[] | undefined
+): string[] =>
+  controls?.flatMap((control) => [
+    ...(control.id ? [String(control.id)] : []),
+    ...collectControlIds(control.controls)
+  ]) ?? [];
+
+const collectGroupControlIds = (group: CatalogGroup): string[] => [
+  ...collectControlIds(group.controls),
+  ...(group.groups?.flatMap(collectGroupControlIds) ?? [])
+];
+
+const groupDescription = (group: CatalogGroup): string | undefined => {
+  const prose = group.parts
+    ?.map((part) => part.prose?.trim())
+    .filter((value): value is string => Boolean(value));
+
+  return prose?.length ? prose.join('\n\n') : undefined;
+};
+
+const projectPractices = (
+  groups: CatalogGroup[] | undefined
+): PracticeRecord[] =>
+  groups?.map((practice, practiceIndex) => ({
+    id: practice.id?.trim() || `practice-${practiceIndex + 1}`,
+    title: practice.title?.trim() || `Praktik ${practiceIndex + 1}`,
+    description: groupDescription(practice),
+    directControlIds: collectControlIds(practice.controls),
+    topics:
+      practice.groups?.map((topic, topicIndex) => ({
+        id: topic.id?.trim() ||
+          `practice-${practiceIndex + 1}-topic-${topicIndex + 1}`,
+        title: topic.title?.trim() || `Thema ${topicIndex + 1}`,
+        description: groupDescription(topic),
+        controlIds: collectGroupControlIds(topic),
+        raw: topic
+      })) ?? [],
+    raw: practice
+  })) ?? [];
+
 const ensureId = (control: CatalogControl, ctx: ParseContext): string => {
   if (control.id) return String(control.id);
   const generated = `control-${Math.random().toString(36).slice(2)}`;
@@ -166,10 +208,11 @@ export const parseCatalog = (input: unknown): CatalogParsingResult => {
       ...flattenControls(catalog.controls, [], ctx),
       ...(catalog.groups?.flatMap((group) => walkGroup(group, [], ctx)) ?? [])
     ];
+    const practices = projectPractices(catalog.groups);
 
-    return { source: maybeRoot, controls, warnings: ctx.warnings };
+    return { source: maybeRoot, controls, practices, warnings: ctx.warnings };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown parsing error';
-    return { source: null, controls: [], warnings: [message] };
+    return { source: null, controls: [], practices: [], warnings: [message] };
   }
 };
