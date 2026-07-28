@@ -90,6 +90,17 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+const openCatalogProvenance = (): HTMLElement => {
+  const summary = screen.getByText('Herkunftsnachweis');
+  const details = summary.closest('details');
+
+  expect(details).not.toBeNull();
+  expect(details).not.toHaveAttribute('open');
+  fireEvent.click(summary);
+
+  return screen.getByRole('region', { name: 'Herkunftsnachweis' });
+};
+
 describe('App catalog navigation', () => {
   it('presents the product and its controls consistently in German', async () => {
     window.location.hash = '#/';
@@ -349,9 +360,30 @@ describe('App catalog navigation', () => {
 
     render(<App />);
 
-    const provenance = await screen.findByRole('region', {
+    const compactProvenance = await screen.findByText(
+      'Kuratierte BSI-Quelle · Version 2026-07-26 · Online-Stand erfolgreich geprüft'
+    );
+    const provenanceDetails = compactProvenance.closest('details');
+    expect(provenanceDetails).not.toBeNull();
+    expect(provenanceDetails).not.toHaveAttribute('open');
+    expect(
+      within(provenanceDetails as HTMLElement).getByRole('heading', {
+        name: 'Herkunftsnachweis',
+        level: 3
+      })
+    ).toBeVisible();
+    expect(
+      within(provenanceDetails as HTMLElement).getByText(
+        'Anwenderkatalog Grundschutz++'
+      )
+    ).not.toBeVisible();
+
+    fireEvent.click(screen.getByText('Herkunftsnachweis'));
+
+    const provenance = screen.getByRole('region', {
       name: 'Herkunftsnachweis'
     });
+    expect(provenanceDetails).toHaveAttribute('open');
     expect(
       within(provenance).getByText('Kuratierte BSI-Quelle')
     ).toBeInTheDocument();
@@ -419,9 +451,7 @@ describe('App catalog navigation', () => {
     expect(loadCatalog).toHaveBeenCalledWith(curatedUrl);
     expect(saveCatalog).toHaveBeenCalledWith(curatedUrl, catalogWithMetadata);
     expect(
-      within(
-        screen.getByRole('region', { name: 'Herkunftsnachweis' })
-      ).getByText('Kuratierte BSI-Quelle')
+      within(openCatalogProvenance()).getByText('Kuratierte BSI-Quelle')
     ).toBeInTheDocument();
     await waitFor(() =>
       expect(window.location.hash).toBe(
@@ -448,9 +478,7 @@ describe('App catalog navigation', () => {
         'Benutzerdefinierte Quelle erfolgreich geprüft'
       )
     );
-    const provenance = screen.getByRole('region', {
-      name: 'Herkunftsnachweis'
-    });
+    const provenance = openCatalogProvenance();
     expect(
       within(provenance).getByText('Benutzerdefinierte Quelle')
     ).toBeInTheDocument();
@@ -490,9 +518,7 @@ describe('App catalog navigation', () => {
       screen.getByRole('textbox', { name: 'Katalog-URL' })
     ).toHaveValue(customUrl);
     expect(
-      within(
-        screen.getByRole('region', { name: 'Herkunftsnachweis' })
-      ).getByText('Kuratierte BSI-Quelle')
+      within(openCatalogProvenance()).getByText('Kuratierte BSI-Quelle')
     ).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
 
@@ -575,9 +601,9 @@ describe('App catalog navigation', () => {
       screen.queryByRole('button', { name: 'Organisation' })
     ).not.toBeInTheDocument();
     expect(
-      within(
-        screen.getByRole('region', { name: 'Herkunftsnachweis' })
-      ).queryByText('Anwenderkatalog Grundschutz++')
+      within(openCatalogProvenance()).queryByText(
+        'Anwenderkatalog Grundschutz++'
+      )
     ).not.toBeInTheDocument();
   });
 });

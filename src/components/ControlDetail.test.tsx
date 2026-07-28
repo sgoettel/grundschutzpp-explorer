@@ -29,12 +29,29 @@ describe('ControlDetail', () => {
 
     render(<ControlDetail control={record} />);
 
+    const requirementText = screen.getByText(/Die Frist beträgt/);
+    const parameterSummary = screen.getByLabelText(
+      'Parameterdetails zu p-frist'
+    );
+    const parameterDetails = parameterSummary.closest('details');
+
+    expect(requirementText).toBeVisible();
+    expect(requirementText.closest('details')).toBeNull();
+    expect(parameterDetails).not.toBeNull();
+    expect(parameterDetails).not.toHaveAttribute('open');
     expect(
       screen.getByText('30 Tage', { selector: 'mark' })
     ).toHaveClass('parameter-value');
     expect(
       screen.getByText('{{ insert: param, p-frist }}')
-    ).toBeInTheDocument();
+    ).not.toBeVisible();
+
+    parameterSummary.click();
+
+    expect(parameterDetails).toHaveAttribute('open');
+    expect(
+      screen.getByText('{{ insert: param, p-frist }}')
+    ).toBeVisible();
     expect(screen.getByText('p-frist')).toBeInTheDocument();
     expect(screen.getByText('festgelegte Frist')).toBeInTheDocument();
     expect(screen.getByText('60 Tage')).toBeInTheDocument();
@@ -101,17 +118,49 @@ describe('ControlDetail', () => {
     expect(within(metadata).getByText('Modalverb')).toBeInTheDocument();
     expect(within(metadata).getByText('MUSS')).toBeInTheDocument();
 
-    const fallback = screen.getByRole('region', {
-      name: 'Weitere Metadaten (noch nicht fachlich eingeordnet)'
+    const sourceSummaries = within(metadata).getAllByText('Herkunft');
+    sourceSummaries.forEach((summary) => {
+      expect(summary.closest('details')).not.toHaveAttribute('open');
     });
-    expect(within(fallback).getByText('future_part_prop')).toBeInTheDocument();
-    expect(within(fallback).getByText('zukünftiger Wert')).toBeInTheDocument();
+    expect(within(metadata).getByText('Control → Prop')).not.toBeVisible();
+
+    sourceSummaries[0].click();
+
+    expect(sourceSummaries[0].closest('details')).toHaveAttribute('open');
+    expect(within(metadata).getByText('Control → Prop')).toBeVisible();
+
+    const fallbackSummary = screen.getByText(
+      'Weitere Metadaten (noch nicht fachlich eingeordnet)'
+    );
     expect(
-      within(fallback).getByText('https://example.test/future')
+      screen.getByRole('heading', {
+        name: 'Weitere Metadaten (noch nicht fachlich eingeordnet)',
+        level: 5
+      })
+    ).toBeVisible();
+    const fallback = fallbackSummary.closest('details');
+    expect(fallback).not.toBeNull();
+    expect(fallback).not.toHaveAttribute('open');
+    const fallbackDetails = fallback as HTMLElement;
+    expect(
+      within(fallbackDetails).getByText('future_part_prop')
+    ).not.toBeVisible();
+
+    fallbackSummary.click();
+
+    expect(fallback).toHaveAttribute('open');
+    expect(
+      within(fallbackDetails).getByText('future_part_prop')
     ).toBeInTheDocument();
-    expect(within(fallback).getByText('Part')).toBeInTheDocument();
     expect(
-      within(fallback).getByText(
+      within(fallbackDetails).getByText('zukünftiger Wert')
+    ).toBeInTheDocument();
+    expect(
+      within(fallbackDetails).getByText('https://example.test/future')
+    ).toBeInTheDocument();
+    expect(within(fallbackDetails).getByText('Part')).toBeInTheDocument();
+    expect(
+      within(fallbackDetails).getByText(
         'Control → statement-Part → item-Part → Prop'
       )
     ).toBeInTheDocument();
@@ -171,6 +220,10 @@ describe('ControlDetail', () => {
 
     expect(requirementSection).not.toBeNull();
     expect(guidanceSection).not.toBeNull();
+    expect(requirementSection?.closest('details')).toBeNull();
+    expect(guidanceSection?.closest('details')).toBeNull();
+    expect(requirementSection).toBeVisible();
+    expect(guidanceSection).toBeVisible();
 
     const requirements = within(requirementSection as HTMLElement);
     expect(requirements.getByText('Erste Anforderung.')).toBeInTheDocument();

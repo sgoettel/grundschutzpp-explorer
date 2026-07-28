@@ -23,6 +23,37 @@ button {
   font: inherit;
 }
 
+details > summary {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  list-style: none;
+  cursor: pointer;
+}
+
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
+details > summary::marker {
+  content: '';
+}
+
+details > summary::before {
+  content: '';
+  width: 0;
+  height: 0;
+  flex: 0 0 auto;
+  border-top: 0.35em solid transparent;
+  border-bottom: 0.35em solid transparent;
+  border-left: 0.5em solid currentColor;
+  transform-origin: 35% 50%;
+}
+
+details[open] > summary::before {
+  transform: rotate(90deg);
+}
+
 .app-shell {
   max-width: 1200px;
   margin: 0 auto;
@@ -56,7 +87,23 @@ button {
   border-top: 1px solid #e2e8f0;
 }
 
-.catalog-provenance h3,
+.catalog-provenance > summary {
+  flex-wrap: wrap;
+}
+
+.catalog-provenance-title {
+  font-size: 1.17em;
+  font-weight: 600;
+}
+
+.catalog-provenance-summary {
+  color: #475569;
+}
+
+.catalog-provenance-content {
+  margin-top: 0.75rem;
+}
+
 .catalog-provenance h4 {
   margin: 0;
 }
@@ -351,8 +398,12 @@ button {
   border-top: 1px solid #e2e8f0;
 }
 
-.metadata-fallback h5 {
-  margin-top: 0;
+.metadata-fallback > summary {
+  font-weight: 600;
+}
+
+.metadata-fallback > .metadata-list {
+  margin-top: 0.75rem;
 }
 
 footer {

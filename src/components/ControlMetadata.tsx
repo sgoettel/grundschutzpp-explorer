@@ -66,13 +66,12 @@ const ControlMetadata = ({ record }: ControlMetadataProps) => {
       ) : null}
 
       {unknown.length ? (
-        <section
-          aria-labelledby={fallbackHeadingId}
-          className="metadata-fallback metadata-section"
-        >
-          <h5 id={fallbackHeadingId}>
-            Weitere Metadaten (noch nicht fachlich eingeordnet)
-          </h5>
+        <details className="metadata-fallback metadata-section">
+          <summary>
+            <span id={fallbackHeadingId} role="heading" aria-level={5}>
+              Weitere Metadaten (noch nicht fachlich eingeordnet)
+            </span>
+          </summary>
           <ul className="metadata-list">
             {unknown.map((prop, index) => (
               <li key={`${prop.sourcePath}-${prop.name ?? 'prop'}-${index}`}>
@@ -92,7 +91,7 @@ const ControlMetadata = ({ record }: ControlMetadataProps) => {
               </li>
             ))}
           </ul>
-        </section>
+        </details>
       ) : null}
     </section>
   );
