@@ -50,6 +50,36 @@ button {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
+.catalog-provenance {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.catalog-provenance h3,
+.catalog-provenance h4 {
+  margin: 0;
+}
+
+.catalog-provenance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.catalog-provenance dl {
+  display: grid;
+  grid-template-columns: minmax(8rem, max-content) 1fr;
+  gap: 0.25rem 0.75rem;
+  margin: 0.5rem 0 0;
+}
+
+.catalog-provenance dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .input-row {
   display: flex;
   flex-direction: column;

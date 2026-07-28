@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import SettingsPanel from './components/SettingsPanel';
 import SearchBar from './components/SearchBar';
 import ResultsList from './components/ResultsList';
@@ -27,7 +27,16 @@ type CatalogMeta = {
   version?: string;
   lastModified?: string;
   oscalVersion?: string;
+  publisher?: string;
 };
+
+const recordsFrom = (value: unknown): Record<string, unknown>[] =>
+  Array.isArray(value)
+    ? value.filter(
+        (item): item is Record<string, unknown> =>
+          Boolean(item) && typeof item === 'object'
+      )
+    : [];
 
 const extractCatalogMeta = (payload: unknown): CatalogMeta => {
   const root = payload as {
@@ -43,11 +52,28 @@ const extractCatalogMeta = (payload: unknown): CatalogMeta => {
 
   if (!meta || typeof meta !== 'object') return {};
 
+  const creatorPartyIds = new Set(
+    recordsFrom(meta['responsible-parties'])
+      .filter((responsibleParty) => responsibleParty['role-id'] === 'creator')
+      .flatMap((responsibleParty) =>
+        Array.isArray(responsibleParty['party-uuids'])
+          ? responsibleParty['party-uuids'].filter(
+              (uuid): uuid is string => typeof uuid === 'string'
+            )
+          : []
+      )
+  );
+  const publisher = recordsFrom(meta.parties).find(
+    (party) =>
+      typeof party.uuid === 'string' && creatorPartyIds.has(party.uuid)
+  )?.name;
+
   return {
     title: typeof meta.title === 'string' ? meta.title : undefined,
     version: typeof meta.version === 'string' ? meta.version : undefined,
     lastModified: typeof meta['last-modified'] === 'string' ? meta['last-modified'] : undefined,
     oscalVersion: typeof meta['oscal-version'] === 'string' ? meta['oscal-version'] : undefined,
+    publisher: typeof publisher === 'string' ? publisher : undefined
   };
 };
 
@@ -78,6 +104,7 @@ const writeHash = (state: HashState) => {
 const App: React.FC = () => {
   const initialHash = readHash();
   const [catalogUrl, setCatalogUrl] = useState(initialHash.url || DEFAULT_CATALOG_URL);
+  const [catalogUrlDraft, setCatalogUrlDraft] = useState(catalogUrl);
   const [query, setQuery] = useState(initialHash.q || '');
   const [groupFilter, setGroupFilter] = useState(initialHash.group || '');
   const [controls, setControls] = useState<ControlRecord[]>([]);
@@ -107,7 +134,10 @@ const App: React.FC = () => {
   useEffect(() => {
     const onHashChange = () => {
       const state = readHash();
-      if (state.url) setCatalogUrl(state.url);
+      if (state.url) {
+        setCatalogUrl(state.url);
+        setCatalogUrlDraft(state.url);
+      }
       setQuery(state.q ?? '');
       setGroupFilter(state.group ?? '');
       setSelectedId(state.id);
@@ -136,22 +166,85 @@ const App: React.FC = () => {
     selectedTopicId
   ]);
 
-    useEffect(() => {
-      const restoreFromCache = async () => {
-        setCatalogMeta({});
-        setLastUpdated(undefined);
-        const cached = await loadCatalog(catalogUrl);
-        if (cached) {
-          setLastUpdated(cached.fetchedAt);
-          setCatalogMeta(extractCatalogMeta(cached.payload));
-          const parsed = parseCatalog(cached.payload);
-          setWarnings(parsed.warnings);
-          setControls(parsed.controls);
-          setPractices(parsed.practices);
-        }
-      };
-      restoreFromCache();
-    }, [catalogUrl]);
+  const fetchAndIndex = useCallback(async (hasCachedCatalog = false) => {
+    let processingStarted = false;
+    setIsFetching(true);
+    setError(null);
+    setWarnings([]);
+    setStatus(
+      hasCachedCatalog
+        ? 'Gespeicherter Katalogstand – Aktualisierung wird geprüft'
+        : 'Kein gespeicherter Katalog – Online-Katalog wird geladen'
+    );
+    try {
+      const response = await fetch(catalogUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to download catalog (${response.status})`);
+      }
+      processingStarted = true;
+      const payload = await response.json();
+
+      const parsed = parseCatalog(payload);
+      if (!parsed.controls.length) {
+        throw new Error('Catalog parsed but no controls were found.');
+      }
+      buildIndex(parsed.controls);
+
+      await saveCatalog(catalogUrl, payload);
+      setCatalogMeta(extractCatalogMeta(payload));
+      setWarnings(parsed.warnings);
+      setControls(parsed.controls);
+      setPractices(parsed.practices);
+      setLastUpdated(Date.now());
+      setStatus(
+        catalogUrl === DEFAULT_CATALOG_URL
+          ? 'Online-Stand erfolgreich geprüft'
+          : 'Benutzerdefinierte Quelle erfolgreich geprüft'
+      );
+    } catch (err) {
+      const cached = await loadCatalog(catalogUrl);
+      if (cached) {
+        setCatalogMeta(extractCatalogMeta(cached.payload));
+        const parsed = parseCatalog(cached.payload);
+        setWarnings(
+          parsed.warnings.concat('Live fetch failed; loaded cached copy.')
+        );
+        setControls(parsed.controls);
+        setPractices(parsed.practices);
+        setLastUpdated(cached.fetchedAt);
+      }
+      setStatus(
+        processingStarted
+          ? 'Online-Katalog konnte nicht zuverlässig verarbeitet werden'
+          : cached
+            ? 'Gespeicherter Katalogstand – Online-Stand konnte nicht geprüft werden'
+            : 'Online-Katalog konnte nicht geladen werden'
+      );
+      setError(
+        err instanceof Error ? err.message : 'Unknown error while fetching catalog'
+      );
+    } finally {
+      setIsFetching(false);
+    }
+  }, [catalogUrl]);
+
+  useEffect(() => {
+    const restoreFromCache = async () => {
+      setCatalogMeta({});
+      setLastUpdated(undefined);
+      const cached = await loadCatalog(catalogUrl);
+      if (cached) {
+        setLastUpdated(cached.fetchedAt);
+        setCatalogMeta(extractCatalogMeta(cached.payload));
+        const parsed = parseCatalog(cached.payload);
+        setWarnings(parsed.warnings);
+        setControls(parsed.controls);
+        setPractices(parsed.practices);
+      }
+      await fetchAndIndex(Boolean(cached));
+    };
+    void restoreFromCache();
+  }, [catalogUrl, fetchAndIndex]);
 
 
   useEffect(() => {
@@ -174,52 +267,6 @@ const App: React.FC = () => {
   }, [controls]);
 
   const selectedRecord = useMemo(() => controlMap.get(selectedId ?? ''), [controlMap, selectedId]);
-
-  const fetchAndIndex = async () => {
-
-
-    setIsFetching(true);
-    setError(null);
-    setWarnings([]);
-    setStatus('Downloading catalog…');
-    try {
-      const response = await fetch(catalogUrl);
-      if (!response.ok) throw new Error(`Failed to download catalog (${response.status})`);
-      const payload = await response.json();
-
-      setStatus('Parsing catalog…');
-      const parsed = parseCatalog(payload);
-      if (!parsed.controls.length) {
-        throw new Error('Catalog parsed but no controls were found.');
-      }
-      setStatus('Indexing…');
-      const { query: runQuery } = buildIndex(parsed.controls);
-      const results = runQuery(query, groupFilter ? { group: groupFilter } : undefined);
-
-      await saveCatalog(catalogUrl, payload);
-      setCatalogMeta(extractCatalogMeta(payload));
-      setWarnings(parsed.warnings);
-      setControls(parsed.controls);
-      setPractices(parsed.practices);
-      setLastUpdated(Date.now());
-      setSearchResults(results);
-      } catch (err) {
-        const cached = await loadCatalog(catalogUrl);
-        if (cached) {
-          setCatalogMeta(extractCatalogMeta(cached.payload));
-          const parsed = parseCatalog(cached.payload);
-          setWarnings(parsed.warnings.concat('Live fetch failed; loaded cached copy.'));
-          setControls(parsed.controls);
-          setPractices(parsed.practices);
-          setLastUpdated(cached.fetchedAt);
-        }
-        setError(err instanceof Error ? err.message : 'Unknown error while fetching catalog');
-      } finally {
-        setStatus('');
-        setIsFetching(false);
-      }
-
-  };
 
   const toggleSelected = (id: string) => {
     setSelectedIds((prev) => {
@@ -274,6 +321,15 @@ const App: React.FC = () => {
     setSelectedTopicId(topicId || undefined);
   };
 
+  const handleCatalogFetch = () => {
+    const nextUrl = catalogUrlDraft.trim();
+    if (nextUrl && nextUrl !== catalogUrl) {
+      setCatalogUrl(nextUrl);
+      return;
+    }
+    void fetchAndIndex(Boolean(lastUpdated));
+  };
+
   const isSearchMode = Boolean(query.trim() || groupFilter);
 
   return (
@@ -287,9 +343,10 @@ const App: React.FC = () => {
 
 
       <SettingsPanel
-        catalogUrl={catalogUrl}
-        onChangeUrl={setCatalogUrl}
-        onFetch={fetchAndIndex}
+        catalogUrl={catalogUrlDraft}
+        activeCatalogUrl={catalogUrl}
+        onChangeUrl={setCatalogUrlDraft}
+        onFetch={handleCatalogFetch}
         onClearCache={() =>
           clearCache()
             .then(() => setWarnings(['Cache cleared.']))
@@ -304,10 +361,19 @@ const App: React.FC = () => {
         isFetching={isFetching}
         lastUpdated={lastUpdated}
         catalogMeta={catalogMeta}
+        catalogStatus={status}
+        isCuratedSource={catalogUrl === DEFAULT_CATALOG_URL}
       />
 
 
-      {status && <Progress label={status} />}
+      {status &&
+        (isFetching ? (
+          <Progress label={status} />
+        ) : (
+          <div className="notice" role="status" aria-live="polite">
+            {status}
+          </div>
+        ))}
       {error && <div className="notice error">{error}</div>}
       {warnings.length > 0 && (
         <div className="notice" role="alert">
