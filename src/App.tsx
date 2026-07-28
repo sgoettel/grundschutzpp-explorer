@@ -6,6 +6,7 @@ import ControlDetail from './components/ControlDetail';
 import Progress from './components/Progress';
 import { DEFAULT_CATALOG_URL } from './config';
 import { buildIndex } from './lib/search';
+import type { SearchHit } from './lib/search';
 import { parseCatalog } from './lib/catalog';
 import { exportCsv, exportMarkdown } from './lib/exporters';
 import { clearCache, loadCatalog, saveCatalog } from './lib/storage';
@@ -81,7 +82,7 @@ const App: React.FC = () => {
   const [isFetching, setIsFetching] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<number | undefined>(undefined);
   const [catalogMeta, setCatalogMeta] = useState<CatalogMeta>({});
-  const [searchResults, setSearchResults] = useState<ControlRecord[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchHit[]>([]);
   const [selectedId, setSelectedId] = useState<string | undefined>(initialHash.id);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -133,11 +134,8 @@ const App: React.FC = () => {
 
     const { query: runQuery } = buildIndex(controls);
     const results = runQuery(query, groupFilter ? { group: groupFilter } : undefined);
-    const mapped = results
-      .map((res) => controlMap.get(String(res.id)))
-      .filter((record): record is ControlRecord => Boolean(record));
-    setSearchResults(mapped);
-  }, [controls, query, groupFilter, controlMap]);
+    setSearchResults(results);
+  }, [controls, query, groupFilter]);
 
 
   const groups = useMemo(() => {
@@ -174,10 +172,7 @@ const App: React.FC = () => {
       setStatus('Indexing…');
       const { query: runQuery } = buildIndex(parsed.controls);
       const results = runQuery(query, groupFilter ? { group: groupFilter } : undefined);
-      const mapped = results
-        .map((res) => parsed.controls.find((c) => c.id === String(res.id)))
-        .filter((record): record is ControlRecord => Boolean(record));
-      setSearchResults(mapped);
+      setSearchResults(results);
       } catch (err) {
         const cached = await loadCatalog(catalogUrl);
         if (cached) {

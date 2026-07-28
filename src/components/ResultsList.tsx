@@ -1,60 +1,33 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { CatalogControl, ControlRecord } from '../lib/types';
+import type { SearchField, SearchHit } from '../lib/search';
 import IdBadge from './IdBadge';
 
 interface ResultsProps {
-  results: ControlRecord[];
+  results: SearchHit[];
   selectedId?: string;
   selectedIds: Set<string>;
   onSelect: (id: string) => void;
   onToggleSelected: (id: string) => void;
 }
 
-const PREVIEW_MAX_CHARS = 160;
-
-const normalizePreviewText = (input: string): string =>
-  input.replace(/\s+/g, ' ').trim();
-
-const sliceWithEllipsis = (text: string, maxLen: number = PREVIEW_MAX_CHARS): string => {
-  const normalized = normalizePreviewText(text);
-  if (normalized.length <= maxLen) return normalized;
-
-  const cut = normalized.slice(0, maxLen);
-  const lastSpace = cut.lastIndexOf(' ');
-  const finalCut = lastSpace > Math.floor(maxLen * 0.6) ? cut.slice(0, lastSpace) : cut;
-
-  return `${finalCut.trimEnd()}…`;
+const SEARCH_FIELD_LABELS: Record<SearchField, string> = {
+  id: 'ID',
+  title: 'Titel',
+  path: 'Pfad',
+  requirement: 'Anforderung',
+  guidance: 'Umsetzungshinweis',
+  metadata: 'Metadaten'
 };
 
-const INSERT_PARAM_RX = /\{\{\s*insert:\s*param\s*,\s*([^\s}]+)\s*\}\}/g;
+const hitReason = (hit: SearchHit): string => {
+  const additionalFields = hit.matchedFields
+    .slice(1)
+    .map((field) => SEARCH_FIELD_LABELS[field]);
+  const additional = additionalFields.length
+    ? ` · außerdem: ${additionalFields.join(', ')}`
+    : '';
 
-const buildParamLabelMap = (params?: CatalogControl['params']): Map<string, string> => {
-  const map = new Map<string, string>();
-  (params ?? []).forEach((p) => {
-    if (!p?.id) return;
-    const label = p.label === undefined || p.label === null ? '' : String(p.label);
-    map.set(p.id, label);
-  });
-  return map;
-};
-
-const resolveParamInsertsPreview = (prose: unknown, control: CatalogControl): string => {
-  if (typeof prose !== 'string' || !prose) return '';
-  const labelById = buildParamLabelMap(control.params);
-
-  return prose.replace(INSERT_PARAM_RX, (_m, paramId: string) => {
-    const label = labelById.get(paramId);
-    return label && label.trim().length > 0 ? label : `[${paramId}]`;
-  });
-};
-
-const pickPrimaryProseForPreview = (control: CatalogControl): unknown => {
-  const parts = control.parts ?? [];
-  return (
-    parts.find((p) => p?.name === 'statement')?.prose ??
-    parts.find((p) => p?.name === 'guidance')?.prose ??
-    ''
-  );
+  return `Treffer in ${SEARCH_FIELD_LABELS[hit.primaryField]}${additional}`;
 };
 
 const ResultsList: React.FC<ResultsProps> = ({ results, selectedId, selectedIds, onSelect, onToggleSelected }) => {
@@ -94,38 +67,37 @@ const ResultsList: React.FC<ResultsProps> = ({ results, selectedId, selectedIds,
   return (
     <div className="result-list" tabIndex={0} ref={containerRef} aria-label="Search results">
       {results.length === 0 && <div className="notice" style={{ margin: '0.75rem' }}>No results</div>}
-      {results.map((record) => {
-        const isSelected = selectedIds.has(record.id);
+      {results.map((hit) => {
+        const isSelected = selectedIds.has(hit.id);
         return (
-          <div key={record.id} className="result-item" data-result>
+          <div key={hit.id} className="result-item" data-result>
             <input
               type="checkbox"
-              aria-label={`Select ${record.title}`}
+              aria-label={`Select ${hit.title}`}
               checked={isSelected}
-              onChange={() => onToggleSelected(record.id)}
+              onChange={() => onToggleSelected(hit.id)}
             />
             <div>
-              <button type="button" onClick={() => onSelect(record.id)} aria-current={selectedId === record.id}>
-                <strong>{record.title}</strong>
+              <button type="button" onClick={() => onSelect(hit.id)} aria-current={selectedId === hit.id}>
+                <strong>{hit.title}</strong>
                 <span style={{ marginLeft: '0.35rem' }}>
-                  <IdBadge id={record.id} />
+                  <IdBadge id={hit.id} />
                 </span>
 
-                {record.control.class && String(record.control.class) !== 'normal-SdT' && (
+                {hit.control.class && String(hit.control.class) !== 'normal-SdT' && (
                   <span className="badge" style={{ marginLeft: '0.35rem' }}>
-                    {String(record.control.class)}
+                    {String(hit.control.class)}
                   </span>
                 )}
 
 
               </button>
-              <div style={{ fontSize: '0.9rem', color: '#475569' }}>{record.groupPath.join(' › ')}</div>
+              <div style={{ fontSize: '0.9rem', color: '#475569' }}>{hit.groupPath.join(' › ')}</div>
+              <div style={{ fontSize: '0.85rem', color: '#475569' }}>
+                {hitReason(hit)}
+              </div>
               <div style={{ fontSize: '0.9rem', color: '#334155' }}>
-                {sliceWithEllipsis(
-                  resolveParamInsertsPreview(pickPrimaryProseForPreview(record.control), record.control) ||
-                  record.fullText ||
-                  ''
-                )}
+                {hit.snippet}
               </div>
 
 
