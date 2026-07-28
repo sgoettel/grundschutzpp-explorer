@@ -16,7 +16,9 @@ describe('parseCatalog', () => {
   it('handles invalid catalog gracefully', () => {
     const result = parseCatalog({});
     expect(result.controls).toEqual([]);
-    expect(result.warnings[0]).toContain('Missing "catalog"');
+    expect(result.warnings[0]).toContain(
+      'Katalog-Wurzeleigenschaft „catalog“ fehlt'
+    );
   });
 
   it('preserves source objects and projects Control and nested Part props with their origin', () => {

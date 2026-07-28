@@ -214,7 +214,9 @@ const projectPractices = (
 const ensureId = (control: CatalogControl, ctx: ParseContext): string => {
   if (control.id) return String(control.id);
   const generated = `control-${Math.random().toString(36).slice(2)}`;
-  ctx.warnings.push('Encountered control without ID; generated synthetic ID.');
+  ctx.warnings.push(
+    'Anforderung ohne ID gefunden; eine technische Ersatz-ID wurde erzeugt.'
+  );
   return generated;
 };
 
@@ -257,11 +259,11 @@ export const parseCatalog = (input: unknown): CatalogParsingResult => {
   try {
     const maybeRoot = input as CatalogRoot;
     if (!maybeRoot || typeof maybeRoot !== 'object' || !('catalog' in maybeRoot)) {
-      throw new Error('Missing "catalog" root property');
+      throw new Error('Katalog-Wurzeleigenschaft „catalog“ fehlt.');
     }
     const catalog = maybeRoot.catalog;
     if (!catalog || typeof catalog !== 'object') {
-      throw new Error('Invalid catalog structure');
+      throw new Error('Die Katalogstruktur ist ungültig.');
     }
 
     const controls = [
@@ -288,7 +290,10 @@ export const parseCatalog = (input: unknown): CatalogParsingResult => {
       warnings: ctx.warnings
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown parsing error';
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Unbekannter Fehler bei der Katalogverarbeitung';
     return {
       source: null,
       controls: [],

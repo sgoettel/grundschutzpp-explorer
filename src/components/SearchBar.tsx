@@ -15,16 +15,16 @@ const SearchBar: React.FC<SearchBarProps> = ({ query, groupFilter, groups, onQue
         <span>Suche</span>
         <input
           type="search"
-          placeholder="Titel, Prosa, Stichwörter"
+          placeholder="ID, Titel, Inhalte, Metadaten"
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
-          aria-label="Search controls"
+          aria-label="Anforderungen durchsuchen"
         />
       </label>
       <label className="input-row">
-        <span>Group filter</span>
-        <select value={groupFilter} onChange={(e) => onGroupChange(e.target.value)} aria-label="Group filter">
-          <option value="">All groups</option>
+        <span>Bereich</span>
+        <select value={groupFilter} onChange={(e) => onGroupChange(e.target.value)} aria-label="Bereich">
+          <option value="">Alle Bereiche</option>
           {groups.map((group) => (
             <option key={group} value={group}>
               {group}
@@ -34,7 +34,8 @@ const SearchBar: React.FC<SearchBarProps> = ({ query, groupFilter, groups, onQue
       </label>
     </div>
     <div className="notice" style={{ marginTop: '0.75rem' }}>
-      Keyboard navigation: focus result list and use <kbd>↑</kbd>/<kbd>↓</kbd> to move, <kbd>Enter</kbd> to open.
+      Tastaturnavigation: Trefferliste fokussieren, mit <kbd>↑</kbd>/
+      <kbd>↓</kbd> navigieren und mit <kbd>Enter</kbd> öffnen.
     </div>
   </div>
 );

@@ -78,7 +78,11 @@ const ControlDetail: React.FC<DetailProps> = ({ control }) => {
   const relationshipsHeadingId = useId();
 
   if (!control) {
-    return <div className="detail">Select a control to see details.</div>;
+    return (
+      <div className="detail">
+        Wähle eine Anforderung aus, um Details anzuzeigen.
+      </div>
+    );
   }
 
   const raw = control.control;
@@ -111,7 +115,7 @@ const ControlDetail: React.FC<DetailProps> = ({ control }) => {
 
 
       {control.groupPath.length > 0 && (
-        <nav aria-label="Breadcrumb" style={{ margin: '0.25rem 0 0.5rem', opacity: 0.75 }}>
+        <nav aria-label="Navigationspfad" style={{ margin: '0.25rem 0 0.5rem', opacity: 0.75 }}>
           {[...control.groupPath, control.title].join(' › ')}
         </nav>
       )}
@@ -152,7 +156,7 @@ const ControlDetail: React.FC<DetailProps> = ({ control }) => {
           <ul>
             {otherParts.map((part, idx) => (
               <li key={part.id ?? `${control.id}-part-${idx}`}>
-                <strong>{part.name || part.title || 'Part'}:</strong>{' '}
+                <strong>{part.name || part.title || 'Inhalt'}:</strong>{' '}
                 {part.prose ? (
                   <ResolvedProse prose={part.prose} params={raw.params} />
                 ) : (

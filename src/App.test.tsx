@@ -91,6 +91,69 @@ afterEach(() => {
 });
 
 describe('App catalog navigation', () => {
+  it('presents the product and its controls consistently in German', async () => {
+    window.location.hash = '#/';
+    vi.mocked(loadCatalog).mockResolvedValue(null);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => catalog
+      })
+    );
+
+    render(<App />);
+
+    await screen.findByRole('button', { name: 'Organisation' });
+    expect(
+      screen.getByRole('heading', { name: 'Grundschutz++ Explorer' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Referenzansicht des aktuellen Grundschutz++-Katalogs.'
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('searchbox', { name: 'Anforderungen durchsuchen' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('combobox', { name: 'Bereich' })
+    ).toHaveDisplayValue('Alle Bereiche');
+    expect(
+      screen.getByText(/Tastaturnavigation: Trefferliste fokussieren/)
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Technische Einstellungen'));
+
+    expect(
+      screen.getByRole('heading', { name: 'Einstellungen' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('textbox', { name: 'Katalog-URL' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Abrufen und aufbereiten' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Cache leeren' })
+    ).toBeInTheDocument();
+
+    fireEvent.change(
+      screen.getByRole('searchbox', { name: 'Anforderungen durchsuchen' }),
+      { target: { value: 'ohne Treffer' } }
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Alle Treffer auswählen (0)' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Keine Treffer')).toBeInTheDocument();
+    expect(
+      screen.getByText('Wähle eine Anforderung aus, um Details anzuzeigen.')
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Datenquelle:/)).toBeInTheDocument();
+    expect(screen.getByText(/Ansicht teilen:/)).toBeInTheDocument();
+  });
+
   it('loads the curated BSI catalog automatically when no cache exists', async () => {
     window.location.hash = '#/';
     vi.mocked(loadCatalog).mockResolvedValue(null);
@@ -139,7 +202,7 @@ describe('App catalog navigation', () => {
       await screen.findByRole('button', { name: 'Organisation' })
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: /Select all filtered/ })
+      screen.queryByRole('button', { name: /Alle Treffer auswählen/ })
     ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Organisation' }));
@@ -200,20 +263,20 @@ describe('App catalog navigation', () => {
     expect(technicalSettings).not.toBeNull();
     expect(technicalSettings).not.toHaveAttribute('open');
     expect(
-      screen.getByRole('textbox', { name: 'Catalog URL' })
+      screen.getByRole('textbox', { name: 'Katalog-URL' })
     ).not.toBeVisible();
     expect(
-      screen.getByRole('button', { name: 'Clear cache' })
+      screen.getByRole('button', { name: 'Cache leeren' })
     ).not.toBeVisible();
 
     fireEvent.click(summary);
 
     expect(technicalSettings).toHaveAttribute('open');
     expect(
-      screen.getByRole('textbox', { name: 'Catalog URL' })
+      screen.getByRole('textbox', { name: 'Katalog-URL' })
     ).toBeVisible();
     expect(
-      screen.getByRole('button', { name: 'Clear cache' })
+      screen.getByRole('button', { name: 'Cache leeren' })
     ).toBeVisible();
   });
 
@@ -260,7 +323,9 @@ describe('App catalog navigation', () => {
     ).toBeInTheDocument();
 
     expect(
-      await screen.findByText('Catalog parsed but no controls were found.')
+      await screen.findByText(
+        'Der Katalog enthält keine verarbeitbaren Anforderungen.'
+      )
     ).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent(
       'Online-Katalog konnte nicht zuverlässig verarbeitet werden'
@@ -333,6 +398,38 @@ describe('App catalog navigation', () => {
     ).toBeInTheDocument();
   });
 
+  it('uses one cache identity and a short hash for legacy curated share URLs', async () => {
+    const legacyUrl =
+      'https://raw.githubusercontent.com/BSI-Bund/Stand-der-Technik-Bibliothek/refs/heads/main/control_layer/Grundschutz%2B%2B/Grundschutz%2B%2B-resolved_catalog.json';
+    const curatedUrl =
+      'https://raw.githubusercontent.com/BSI-Bund/Stand-der-Technik-Bibliothek/main/control_layer/Grundschutz++/Grundschutz++-resolved_catalog.json';
+    window.location.hash =
+      `#/?url=${encodeURIComponent(legacyUrl)}` +
+      '&id=ORG.1&practice=practice-organisation&topic=topic-regelungen';
+    vi.mocked(loadCatalog).mockResolvedValue(null);
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => catalogWithMetadata
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(curatedUrl));
+    expect(loadCatalog).toHaveBeenCalledWith(curatedUrl);
+    expect(saveCatalog).toHaveBeenCalledWith(curatedUrl, catalogWithMetadata);
+    expect(
+      within(
+        screen.getByRole('region', { name: 'Herkunftsnachweis' })
+      ).getByText('Kuratierte BSI-Quelle')
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(window.location.hash).toBe(
+        '#/?id=ORG.1&practice=practice-organisation&topic=topic-regelungen'
+      )
+    );
+  });
+
   it('labels and caches a custom source separately', async () => {
     const customUrl = 'https://custom.example/catalog.json';
     window.location.hash =
@@ -385,12 +482,12 @@ describe('App catalog navigation', () => {
     fetchMock.mockClear();
     fireEvent.click(screen.getByText('Technische Einstellungen'));
 
-    fireEvent.change(screen.getByRole('textbox', { name: 'Catalog URL' }), {
+    fireEvent.change(screen.getByRole('textbox', { name: 'Katalog-URL' }), {
       target: { value: customUrl }
     });
 
     expect(
-      screen.getByRole('textbox', { name: 'Catalog URL' })
+      screen.getByRole('textbox', { name: 'Katalog-URL' })
     ).toHaveValue(customUrl);
     expect(
       within(
@@ -399,12 +496,47 @@ describe('App catalog navigation', () => {
     ).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Fetch & Index' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Abrufen und aufbereiten' })
+    );
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(customUrl));
     expect(
       await screen.findByText('Benutzerdefinierte Quelle')
     ).toBeInTheDocument();
+  });
+
+  it('normalizes an edited legacy BSI URL in the settings', async () => {
+    const legacyUrl =
+      'https://raw.githubusercontent.com/BSI-Bund/Stand-der-Technik-Bibliothek/refs/heads/main/control_layer/Grundschutz%2B%2B/Grundschutz%2B%2B-resolved_catalog.json';
+    const curatedUrl =
+      'https://raw.githubusercontent.com/BSI-Bund/Stand-der-Technik-Bibliothek/main/control_layer/Grundschutz++/Grundschutz++-resolved_catalog.json';
+    window.location.hash = '#/';
+    vi.mocked(loadCatalog).mockResolvedValue(null);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => catalogWithMetadata
+      })
+    );
+
+    render(<App />);
+
+    await screen.findByRole('button', { name: 'Organisation' });
+    fireEvent.click(screen.getByText('Technische Einstellungen'));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Katalog-URL' }), {
+      target: { value: legacyUrl }
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Abrufen und aufbereiten' })
+    );
+
+    await waitFor(() => expect(saveCatalog).toHaveBeenCalledTimes(2));
+    expect(
+      screen.getByRole('textbox', { name: 'Katalog-URL' })
+    ).toHaveValue(curatedUrl);
+    expect(window.location.hash).toBe('#/');
   });
 
   it('does not present the previous source when a new uncached source fails', async () => {
@@ -427,10 +559,12 @@ describe('App catalog navigation', () => {
     ).toBeInTheDocument();
     fireEvent.click(screen.getByText('Technische Einstellungen'));
 
-    fireEvent.change(screen.getByRole('textbox', { name: 'Catalog URL' }), {
+    fireEvent.change(screen.getByRole('textbox', { name: 'Katalog-URL' }), {
       target: { value: customUrl }
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Fetch & Index' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Abrufen und aufbereiten' })
+    );
 
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent(

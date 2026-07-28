@@ -43,7 +43,7 @@ const SettingsPanel: React.FC<SettingsProps> = ({
   const formatMaybeDate = (value?: string): string | undefined => {
     if (!value) return undefined;
     const d = new Date(value);
-    return Number.isNaN(d.getTime()) ? value : d.toLocaleString();
+    return Number.isNaN(d.getTime()) ? value : d.toLocaleString('de-DE');
   };
 
   const lastModifiedLabel = formatMaybeDate(catalogMeta?.lastModified);
@@ -62,7 +62,7 @@ const SettingsPanel: React.FC<SettingsProps> = ({
             alignItems: 'center'
           }}
         >
-          <h2 id="settings-heading">Settings</h2>
+          <h2 id="settings-heading">Einstellungen</h2>
 
           <div
             style={{
@@ -76,15 +76,15 @@ const SettingsPanel: React.FC<SettingsProps> = ({
           >
             {lastUpdated && (
               <span className="badge">
-                Cached {new Date(lastUpdated).toLocaleString()}
+                Gespeichert {new Date(lastUpdated).toLocaleString('de-DE')}
               </span>
             )}
 
             {catalogMeta?.version && (
               <span className="badge">
-                Catalog v{catalogMeta.version}
+                Katalogversion {catalogMeta.version}
                 {lastModifiedLabel
-                  ? ` · last-modified ${lastModifiedLabel}`
+                  ? ` · letzte Änderung ${lastModifiedLabel}`
                   : ''}
               </span>
             )}
@@ -97,26 +97,26 @@ const SettingsPanel: React.FC<SettingsProps> = ({
 
         <div className="settings-grid">
           <label className="input-row">
-            <span>Catalog URL</span>
+            <span>Katalog-URL</span>
             <input
               type="url"
               value={catalogUrl}
               onChange={(e) => onChangeUrl(e.target.value)}
               placeholder="https://.../catalog.json"
-              aria-label="Catalog URL"
+              aria-label="Katalog-URL"
             />
           </label>
         </div>
         <div className="actions" style={{ marginTop: '0.75rem' }}>
           <button type="button" onClick={onFetch} disabled={isFetching}>
-            {isFetching ? 'Fetching…' : 'Fetch & Index'}
+            {isFetching ? 'Abruf läuft…' : 'Abrufen und aufbereiten'}
           </button>
           <button type="button" onClick={onClearCache} disabled={isFetching}>
-            Clear cache
+            Cache leeren
           </button>
           <span className="notice" aria-live="polite">
-            Paste a custom URL and press Fetch to reload. Data is cached
-            locally for offline reuse.
+            Eine eigene URL kann hier abgerufen werden. Erfolgreich
+            aufbereitete Kataloge werden lokal gespeichert.
           </span>
         </div>
       </details>
@@ -161,7 +161,7 @@ const SettingsPanel: React.FC<SettingsProps> = ({
               <dt>Abrufzeit</dt>
               <dd>
                 {lastUpdated
-                  ? new Date(lastUpdated).toLocaleString()
+                  ? new Date(lastUpdated).toLocaleString('de-DE')
                   : 'Noch nicht abgerufen'}
               </dd>
               <dt>Aufbereitungsstatus</dt>
@@ -206,7 +206,7 @@ const SettingsPanel: React.FC<SettingsProps> = ({
                       CC BY-SA 4.0
                     </a>
                   </dd>
-                  <dt>Attribution</dt>
+                  <dt>Namensnennung</dt>
                   <dd>
                     Bundesamt für Sicherheit in der Informationstechnik
                     (BSI), Stand-der-Technik-Bibliothek

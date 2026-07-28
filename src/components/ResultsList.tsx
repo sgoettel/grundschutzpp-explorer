@@ -65,15 +65,15 @@ const ResultsList: React.FC<ResultsProps> = ({ results, selectedId, selectedIds,
   }, [focusIndex, results]);
 
   return (
-    <div className="result-list" tabIndex={0} ref={containerRef} aria-label="Search results">
-      {results.length === 0 && <div className="notice" style={{ margin: '0.75rem' }}>No results</div>}
+    <div className="result-list" tabIndex={0} ref={containerRef} aria-label="Suchergebnisse">
+      {results.length === 0 && <div className="notice" style={{ margin: '0.75rem' }}>Keine Treffer</div>}
       {results.map((hit) => {
         const isSelected = selectedIds.has(hit.id);
         return (
           <div key={hit.id} className="result-item" data-result>
             <input
               type="checkbox"
-              aria-label={`Select ${hit.title}`}
+              aria-label={`${hit.title} auswählen`}
               checked={isSelected}
               onChange={() => onToggleSelected(hit.id)}
             />

@@ -5,7 +5,11 @@ import ResultsList from './components/ResultsList';
 import ControlDetail from './components/ControlDetail';
 import PracticeNavigator from './components/PracticeNavigator';
 import Progress from './components/Progress';
-import { DEFAULT_CATALOG_URL } from './config';
+import {
+  canonicalizeCatalogUrl,
+  DEFAULT_CATALOG_URL,
+  isCuratedCatalogUrl
+} from './config';
 import { buildIndex } from './lib/search';
 import type { SearchHit } from './lib/search';
 import { parseCatalog } from './lib/catalog';
@@ -107,7 +111,9 @@ const writeHash = (state: HashState) => {
 
 const App: React.FC = () => {
   const initialHash = readHash();
-  const [catalogUrl, setCatalogUrl] = useState(initialHash.url || DEFAULT_CATALOG_URL);
+  const [catalogUrl, setCatalogUrl] = useState(() =>
+    canonicalizeCatalogUrl(initialHash.url || DEFAULT_CATALOG_URL)
+  );
   const [catalogUrlDraft, setCatalogUrlDraft] = useState(catalogUrl);
   const [query, setQuery] = useState(initialHash.q || '');
   const [groupFilter, setGroupFilter] = useState(initialHash.group || '');
@@ -131,6 +137,7 @@ const App: React.FC = () => {
     initialHash.topic
   );
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const isCuratedSource = isCuratedCatalogUrl(catalogUrl);
 
   const controlMap = useMemo(() => {
     const map = new Map<string, ControlRecord>();
@@ -141,10 +148,11 @@ const App: React.FC = () => {
   useEffect(() => {
     const onHashChange = () => {
       const state = readHash();
-      if (state.url) {
-        setCatalogUrl(state.url);
-        setCatalogUrlDraft(state.url);
-      }
+      const nextCatalogUrl = canonicalizeCatalogUrl(
+        state.url || DEFAULT_CATALOG_URL
+      );
+      setCatalogUrl(nextCatalogUrl);
+      setCatalogUrlDraft(nextCatalogUrl);
       setQuery(state.q ?? '');
       setGroupFilter(state.group ?? '');
       setSelectedId(state.id);
@@ -157,7 +165,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     writeHash({
-      url: catalogUrl,
+      url: isCuratedSource ? undefined : catalogUrl,
       q: query,
       group: groupFilter,
       id: selectedId,
@@ -166,6 +174,7 @@ const App: React.FC = () => {
     });
   }, [
     catalogUrl,
+    isCuratedSource,
     query,
     groupFilter,
     selectedId,
@@ -186,14 +195,18 @@ const App: React.FC = () => {
     try {
       const response = await fetch(catalogUrl);
       if (!response.ok) {
-        throw new Error(`Failed to download catalog (${response.status})`);
+        throw new Error(
+          `Katalog konnte nicht abgerufen werden (HTTP ${response.status}).`
+        );
       }
       processingStarted = true;
       const payload = await response.json();
 
       const parsed = parseCatalog(payload);
       if (!parsed.controls.length) {
-        throw new Error('Catalog parsed but no controls were found.');
+        throw new Error(
+          'Der Katalog enthält keine verarbeitbaren Anforderungen.'
+        );
       }
       buildIndex(parsed.controls);
 
@@ -205,7 +218,7 @@ const App: React.FC = () => {
       setCatalogReferences(parsed.references);
       setLastUpdated(Date.now());
       setStatus(
-        catalogUrl === DEFAULT_CATALOG_URL
+        isCuratedCatalogUrl(catalogUrl)
           ? 'Online-Stand erfolgreich geprüft'
           : 'Benutzerdefinierte Quelle erfolgreich geprüft'
       );
@@ -215,7 +228,9 @@ const App: React.FC = () => {
         setCatalogMeta(extractCatalogMeta(cached.payload));
         const parsed = parseCatalog(cached.payload);
         setWarnings(
-          parsed.warnings.concat('Live fetch failed; loaded cached copy.')
+          parsed.warnings.concat(
+            'Online-Abruf fehlgeschlagen; gespeicherter Katalogstand wird verwendet.'
+          )
         );
         setControls(parsed.controls);
         setPractices(parsed.practices);
@@ -230,7 +245,9 @@ const App: React.FC = () => {
             : 'Online-Katalog konnte nicht geladen werden'
       );
       setError(
-        err instanceof Error ? err.message : 'Unknown error while fetching catalog'
+        err instanceof Error
+          ? err.message
+          : 'Unbekannter Fehler beim Abrufen des Katalogs'
       );
     } finally {
       setIsFetching(false);
@@ -337,7 +354,8 @@ const App: React.FC = () => {
   };
 
   const handleCatalogFetch = () => {
-    const nextUrl = catalogUrlDraft.trim();
+    const nextUrl = canonicalizeCatalogUrl(catalogUrlDraft);
+    setCatalogUrlDraft(nextUrl);
     if (nextUrl && nextUrl !== catalogUrl) {
       setCatalogUrl(nextUrl);
       return;
@@ -351,8 +369,8 @@ const App: React.FC = () => {
     <div className="app-shell">
         <header className="header">
           <div>
-            <h1>Grundschutz++ OSCAL Explorer</h1>
-            <p>Fetch, search, and export controls directly in the browser.</p>
+            <h1>Grundschutz++ Explorer</h1>
+            <p>Referenzansicht des aktuellen Grundschutz++-Katalogs.</p>
           </div>
         </header>
 
@@ -364,12 +382,12 @@ const App: React.FC = () => {
         onFetch={handleCatalogFetch}
         onClearCache={() =>
           clearCache()
-            .then(() => setWarnings(['Cache cleared.']))
+            .then(() => setWarnings(['Cache wurde geleert.']))
             .catch((err) =>
               setWarnings([
                 err instanceof Error && err.message.includes('blocked')
-                  ? 'Cache not fully cleared (blocked). Close other tabs and try again.'
-                  : 'Cache could not be fully cleared. Please try again.',
+                  ? 'Cache konnte nicht vollständig geleert werden. Bitte andere Explorer-Tabs schließen und erneut versuchen.'
+                  : 'Cache konnte nicht vollständig geleert werden. Bitte erneut versuchen.',
               ])
             )
         }
@@ -378,7 +396,7 @@ const App: React.FC = () => {
         catalogMeta={catalogMeta}
         catalogReferences={catalogReferences}
         catalogStatus={status}
-        isCuratedSource={catalogUrl === DEFAULT_CATALOG_URL}
+        isCuratedSource={isCuratedSource}
       />
 
 
@@ -411,18 +429,20 @@ const App: React.FC = () => {
         <>
           <div className="actions" style={{ margin: '0.75rem 0' }}>
             <button type="button" onClick={selectAllVisible} disabled={!searchResults.length}>
-              Select all filtered ({searchResults.length})
+              Alle Treffer auswählen ({searchResults.length})
             </button>
             <button type="button" onClick={() => setSelectedIds(new Set())} disabled={!selectedIds.size}>
-              Clear selection
+              Auswahl aufheben
             </button>
             <button type="button" onClick={handleExportCsv} disabled={!searchResults.length}>
-              Export CSV
+              CSV exportieren
             </button>
             <button type="button" onClick={handleExportMarkdown} disabled={!searchResults.length}>
-              Export Markdown
+              Markdown exportieren
             </button>
-            <span aria-live="polite">Selected: {selectedIds.size || 'none'}</span>
+            <span aria-live="polite">
+              Ausgewählt: {selectedIds.size || 'keine'}
+            </span>
           </div>
 
           <div className="results">
@@ -453,18 +473,22 @@ const App: React.FC = () => {
 
         <footer>
           <div>
-            Data source:{' '}
+            Datenquelle:{' '}
             <a
               href="https://github.com/BSI-Bund/Stand-der-Technik-Bibliothek"
               target="_blank"
               rel="noreferrer"
             >
-              BSI "Stand der Technik Bibliothek" (Grundschutz++ Kompendium)
+              BSI „Stand der Technik Bibliothek“ (Grundschutz++-Kompendium)
             </a>
-            . Please review BSI licensing before reuse.
+            . Vor einer Weiterverwendung bitte die BSI-Lizenzbedingungen
+            prüfen.
           </div>
           <div>
-            Shareable view: copy the URL after adjusting filters; state is encoded in the hash.
+            Ansicht teilen: Die URL nach Auswahl oder Filterung kopieren.
+          </div>
+          <div>
+            Unabhängiges Community-Projekt, keine offizielle BSI-Anwendung.
           </div>
         </footer>
 
