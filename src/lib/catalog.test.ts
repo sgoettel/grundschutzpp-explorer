@@ -51,4 +51,49 @@ describe('parseCatalog', () => {
     });
     expect(record?.control.class).toBe('normal-SdT');
   });
+
+  it('projects resolved nested prose and known metadata into searchable text', () => {
+    const result = parseCatalog({
+      catalog: {
+        controls: [
+          {
+            id: 'SEARCH.1',
+            title: 'Suchprojektion',
+            params: [
+              {
+                id: 'p-frist',
+                label: 'festgelegte Frist',
+                values: ['30 Tage']
+              }
+            ],
+            props: [{ name: 'sec_level', value: 'Basis' }],
+            parts: [
+              {
+                name: 'statement',
+                prose: 'Die Frist beträgt {{ insert: param, p-frist }}.',
+                props: [{ name: 'modal_verb', value: 'MUSS' }],
+                parts: [
+                  {
+                    name: 'item',
+                    title: 'Vertiefung',
+                    prose: 'Verschachtelte Pflicht'
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    });
+
+    const fullText = result.controls[0]?.fullText ?? '';
+
+    expect(fullText).toContain('Die Frist beträgt 30 Tage.');
+    expect(fullText).not.toContain('{{ insert: param, p-frist }}');
+    expect(fullText).toContain('Vertiefung');
+    expect(fullText).toContain('Verschachtelte Pflicht');
+    expect(fullText).toContain('Basis');
+    expect(fullText).toContain('MUSS');
+    expect(fullText).not.toContain('modal_verb');
+  });
 });

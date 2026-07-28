@@ -9,6 +9,7 @@ import {
   ControlRecord,
   ProjectedProp
 } from './types';
+import { resolveParameterInserts } from './parameters';
 
 interface ParseContext {
   warnings: string[];
@@ -81,43 +82,32 @@ const projectMetadata = (control: CatalogControl): ControlMetadataProjection => 
   return projection;
 };
 
-const collectText = (control: CatalogControl): string => {
-  const textParts: string[] = [];
+const collectPartText = (
+  parts: CatalogPart[] | undefined,
+  params: CatalogControl['params']
+): string[] =>
+  parts?.flatMap((part) => {
+    const current = [
+      part.title,
+      resolveParameterInserts(part.prose, params).plainText
+    ].filter((value): value is string => Boolean(value));
 
-  // title comes in flattenControls at the begining
-  if (control.class) {
-    textParts.push(control.class);
-  }
+    return [...current, ...collectPartText(part.parts, params)];
+  }) ?? [];
 
-  // - alt-identifier, effort_level only in metadata
-  control.props?.forEach((prop) => {
-    if (prop.name === 'tags' && prop.value) {
-      textParts.push(prop.value);
-    }
-  });
+const collectText = (
+  control: CatalogControl,
+  metadata: ControlMetadataProjection
+): string => {
+  const metadataValues = metadata.known
+    .map((prop) => prop.value)
+    .filter((value): value is string => Boolean(value));
 
-  control.params?.forEach((param) => {
-    if (param.label) textParts.push(param.label);
-    if (param.prose) textParts.push(param.prose);
-  });
-
-control.parts?.forEach((part) => {
-  if (part.title) textParts.push(part.title);
-
-  // part.name contains OSCAL structure tokens (e.g. "statement", "guidance").
-  // therefore we skip them (case-insensitiv).
-  const name = typeof part.name === 'string' ? part.name.toLowerCase() : '';
-  if (name && name !== 'statement' && name !== 'guidance') {
-    textParts.push(part.name as string);
-  }
-
-  if (part.prose) textParts.push(part.prose);
-});
-
-
-  return textParts.join(' ').trim();
+  return [
+    ...collectPartText(control.parts, control.params),
+    ...metadataValues
+  ].join(' ').trim();
 };
-
 
 const ensureId = (control: CatalogControl, ctx: ParseContext): string => {
   if (control.id) return String(control.id);
@@ -135,14 +125,17 @@ const flattenControls = (
   return controls.flatMap((control) => {
     const id = ensureId(control, ctx);
     const title = control.title?.trim() || id || DEFAULT_UNKNOWN_TITLE;
-    const fullText = [title, collectText(control)].filter(Boolean).join(' ');
+    const metadata = projectMetadata(control);
+    const fullText = [title, collectText(control, metadata)]
+      .filter(Boolean)
+      .join(' ');
     const current: ControlRecord = {
       id,
       title,
       groupPath,
       fullText,
       control,
-      metadata: projectMetadata(control)
+      metadata
     };
 
     const nested = flattenControls(control.controls, [...groupPath, title], ctx);
