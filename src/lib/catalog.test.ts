@@ -159,4 +159,119 @@ describe('parseCatalog', () => {
     });
     expect(topic?.raw).toBe(source.catalog.groups[0].groups[0]);
   });
+
+  it('projects required and related controls and resolves catalog references through back matter', () => {
+    const source = {
+      catalog: {
+        metadata: {
+          links: [
+            {
+              href: '#resource-1',
+              rel: 'reference',
+              text: 'BSI IT-Grundschutz Edition 2023'
+            }
+          ]
+        },
+        controls: [
+          {
+            id: 'CTRL-A',
+            title: 'Ausgangsanforderung',
+            links: [
+              { href: '#CTRL-B', rel: 'required' },
+              { href: '#CTRL-MISSING', rel: 'related' }
+            ]
+          },
+          {
+            id: 'CTRL-B',
+            title: 'Benötigte Anforderung'
+          }
+        ],
+        'back-matter': {
+          resources: [
+            {
+              uuid: 'resource-1',
+              title: 'BSI IT-Grundschutz Edition 2023',
+              rlinks: [{ href: 'https://www.bsi.bund.de/grundschutz' }]
+            }
+          ]
+        }
+      }
+    };
+
+    const result = parseCatalog(source);
+    const record = result.controls.find((control) => control.id === 'CTRL-A');
+
+    expect(record?.relationships).toEqual([
+      expect.objectContaining({
+        kind: 'required',
+        targetId: 'CTRL-B',
+        targetTitle: 'Benötigte Anforderung',
+        sourcePath: 'Control → Link'
+      }),
+      expect.objectContaining({
+        kind: 'related',
+        targetId: 'CTRL-MISSING',
+        sourcePath: 'Control → Link'
+      })
+    ]);
+    expect(record?.relationships?.[0].raw).toBe(
+      source.catalog.controls[0]?.links?.[0]
+    );
+    expect(result.references).toEqual([
+      expect.objectContaining({
+        title: 'BSI IT-Grundschutz Edition 2023',
+        href: 'https://www.bsi.bund.de/grundschutz',
+        sourcePath: 'Catalog → metadata → Link → back-matter → Resource'
+      })
+    ]);
+    expect(result.references[0]?.rawLink).toBe(
+      source.catalog.metadata.links[0]
+    );
+    expect(result.references[0]?.rawResource).toBe(
+      source.catalog['back-matter'].resources[0]
+    );
+  });
+
+  it('projects the verified target, threat, and security-objective props as known metadata', () => {
+    const result = parseCatalog({
+      catalog: {
+        controls: [
+          {
+            id: 'META.1',
+            title: 'Fachmetadaten',
+            props: [
+              { name: 'confidentiality', value: '2' },
+              { name: 'integrity', value: '1' },
+              { name: 'availability', value: '1' },
+              { name: 'authenticity', value: '0' },
+              { name: 'threats', value: 'G 0.18, G 0.19' }
+            ],
+            parts: [
+              {
+                name: 'statement',
+                props: [
+                  {
+                    name: 'target_object_categories',
+                    value: 'Daten'
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    });
+
+    expect(
+      result.controls[0]?.metadata.known.map((prop) => prop.name)
+    ).toEqual([
+      'confidentiality',
+      'integrity',
+      'availability',
+      'authenticity',
+      'threats',
+      'target_object_categories'
+    ]);
+    expect(result.controls[0]?.metadata.unknown).toEqual([]);
+  });
 });

@@ -64,6 +64,22 @@ const catalogWithMetadata = {
           'role-id': 'creator',
           'party-uuids': ['bsi-party']
         }
+      ],
+      links: [
+        {
+          href: '#resource-1',
+          rel: 'reference',
+          text: 'BSI IT-Grundschutz Edition 2023'
+        }
+      ]
+    },
+    'back-matter': {
+      resources: [
+        {
+          uuid: 'resource-1',
+          title: 'BSI IT-Grundschutz Edition 2023',
+          rlinks: [{ href: 'https://www.bsi.bund.de/grundschutz' }]
+        }
       ]
     }
   }
@@ -256,6 +272,11 @@ describe('App catalog navigation', () => {
       'href',
       'https://github.com/BSI-Bund/Stand-der-Technik-Bibliothek'
     );
+    expect(
+      within(provenance).getByRole('link', {
+        name: 'BSI IT-Grundschutz Edition 2023'
+      })
+    ).toHaveAttribute('href', 'https://www.bsi.bund.de/grundschutz');
   });
 
   it('labels and caches a custom source separately', async () => {
@@ -329,5 +350,44 @@ describe('App catalog navigation', () => {
     expect(
       await screen.findByText('Benutzerdefinierte Quelle')
     ).toBeInTheDocument();
+  });
+
+  it('does not present the previous source when a new uncached source fails', async () => {
+    const customUrl = 'https://custom.example/unavailable.json';
+    window.location.hash = '#/';
+    vi.mocked(loadCatalog).mockResolvedValue(null);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => catalogWithMetadata
+      })
+      .mockRejectedValueOnce(new Error('offline'));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole('button', { name: 'Organisation' })
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Catalog URL' }), {
+      target: { value: customUrl }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Fetch & Index' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Online-Katalog konnte nicht geladen werden'
+      )
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Organisation' })
+    ).not.toBeInTheDocument();
+    expect(
+      within(
+        screen.getByRole('region', { name: 'Herkunftsnachweis' })
+      ).queryByText('Anwenderkatalog Grundschutz++')
+    ).not.toBeInTheDocument();
   });
 });

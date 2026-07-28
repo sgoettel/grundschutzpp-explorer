@@ -1,34 +1,25 @@
 import {
   CatalogControl,
   CatalogGroup,
+  CatalogReference,
   CatalogParsingResult,
   CatalogPart,
   CatalogProp,
   CatalogRoot,
+  ControlRelationship,
   ControlMetadataProjection,
   ControlRecord,
   PracticeRecord,
   ProjectedProp
 } from './types';
 import { resolveParameterInserts } from './parameters';
+import { KNOWN_PROP_NAMES } from './metadata';
 
 interface ParseContext {
   warnings: string[];
 }
 
 const DEFAULT_UNKNOWN_TITLE = 'Untitled control';
-
-const KNOWN_PROP_NAMES = new Set([
-  'action_word',
-  'alt-identifier',
-  'documentation',
-  'effort_level',
-  'modal_verb',
-  'result',
-  'result_specification',
-  'sec_level',
-  'tags'
-]);
 
 const projectProp = (
   prop: CatalogProp,
@@ -81,6 +72,67 @@ const projectMetadata = (control: CatalogControl): ControlMetadataProjection => 
   });
   projectPartProps(control.parts, ['Control'], projection);
   return projection;
+};
+
+const projectRelationships = (
+  control: CatalogControl,
+  titlesById: Map<string, string>
+): ControlRelationship[] =>
+  control.links?.flatMap((link) => {
+    if (
+      (link.rel !== 'required' && link.rel !== 'related') ||
+      !link.href?.startsWith('#') ||
+      link.href.length === 1
+    ) {
+      return [];
+    }
+
+    const targetId = link.href.slice(1);
+    return [
+      {
+        kind: link.rel,
+        targetId,
+        targetTitle: titlesById.get(targetId),
+        sourcePath: 'Control → Link',
+        raw: link
+      }
+    ];
+  }) ?? [];
+
+const projectCatalogReferences = (
+  catalog: NonNullable<CatalogRoot['catalog']>
+): CatalogReference[] => {
+  const resources = catalog['back-matter']?.resources ?? [];
+  const resourcesById = new Map(
+    resources.flatMap((resource) =>
+      resource.uuid ? [[resource.uuid, resource] as const] : []
+    )
+  );
+
+  return catalog.metadata?.links?.flatMap((link) => {
+    if (
+      link.rel !== 'reference' ||
+      !link.href?.startsWith('#') ||
+      link.href.length === 1
+    ) {
+      return [];
+    }
+
+    const resource = resourcesById.get(link.href.slice(1));
+    const title = resource?.title?.trim() || link.text?.trim();
+    if (!title) return [];
+
+    return [
+      {
+        title,
+        href: resource?.rlinks?.find((rlink) => rlink.href)?.href,
+        sourcePath:
+          'Catalog → metadata → Link → back-matter → Resource',
+        rawLink: link,
+        rawResource: resource
+      }
+    ];
+  }) ?? [];
 };
 
 const collectPartText = (
@@ -208,11 +260,33 @@ export const parseCatalog = (input: unknown): CatalogParsingResult => {
       ...flattenControls(catalog.controls, [], ctx),
       ...(catalog.groups?.flatMap((group) => walkGroup(group, [], ctx)) ?? [])
     ];
+    const titlesById = new Map(
+      controls.map((control) => [control.id, control.title])
+    );
+    controls.forEach((record) => {
+      record.relationships = projectRelationships(
+        record.control,
+        titlesById
+      );
+    });
     const practices = projectPractices(catalog.groups);
+    const references = projectCatalogReferences(catalog);
 
-    return { source: maybeRoot, controls, practices, warnings: ctx.warnings };
+    return {
+      source: maybeRoot,
+      controls,
+      practices,
+      references,
+      warnings: ctx.warnings
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown parsing error';
-    return { source: null, controls: [], practices: [], warnings: [message] };
+    return {
+      source: null,
+      controls: [],
+      practices: [],
+      references: [],
+      warnings: [message]
+    };
   }
 };

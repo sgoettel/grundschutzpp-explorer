@@ -188,4 +188,101 @@ describe('ControlDetail', () => {
       guidance.getByText('Verschachtelter Umsetzungshinweis.')
     ).toBeInTheDocument();
   });
+
+  it('renders required and related controls with resolved titles and traceable origin', () => {
+    const record: ControlRecord = {
+      id: 'CTRL-A',
+      title: 'Ausgangsanforderung',
+      groupPath: ['Organisation', 'Regelungen'],
+      fullText: '',
+      control: {},
+      metadata: { known: [], unknown: [] },
+      relationships: [
+        {
+          kind: 'required',
+          targetId: 'CTRL-B',
+          targetTitle: 'Benötigte Anforderung',
+          sourcePath: 'Control → Link',
+          raw: { href: '#CTRL-B', rel: 'required' }
+        },
+        {
+          kind: 'related',
+          targetId: 'CTRL-MISSING',
+          sourcePath: 'Control → Link',
+          raw: { href: '#CTRL-MISSING', rel: 'related' }
+        }
+      ]
+    };
+
+    render(<ControlDetail control={record} />);
+
+    const relationships = screen.getByRole('region', {
+      name: 'Beziehungen'
+    });
+    expect(
+      within(relationships).getByText('Erforderliche Anforderungen')
+    ).toBeInTheDocument();
+    expect(
+      within(relationships).getByText('Benötigte Anforderung')
+    ).toBeInTheDocument();
+    expect(within(relationships).getByText('CTRL-B')).toBeInTheDocument();
+    expect(
+      within(relationships).getByText('Verwandte Anforderungen')
+    ).toBeInTheDocument();
+    expect(
+      within(relationships).getByText('CTRL-MISSING')
+    ).toBeInTheDocument();
+    expect(
+      within(relationships).getByText(
+        'BSI-Quelldaten · vom Explorer aufgelöst'
+      )
+    ).toBeInTheDocument();
+    expect(
+      within(relationships).getAllByText('Control → Link')
+    ).toHaveLength(2);
+  });
+
+  it('labels the verified target, threat, and security-objective metadata fachlich', () => {
+    const namesAndValues = [
+      ['target_object_categories', 'Daten'],
+      ['threats', 'G 0.18'],
+      ['confidentiality', '2'],
+      ['integrity', '1'],
+      ['availability', '1'],
+      ['authenticity', '0']
+    ];
+    const record: ControlRecord = {
+      id: 'META.1',
+      title: 'Fachmetadaten',
+      groupPath: ['Organisation', 'Regelungen'],
+      fullText: '',
+      control: {},
+      metadata: {
+        known: namesAndValues.map(([name, value]) => ({
+          name,
+          value,
+          sourceLevel: 'control',
+          sourcePath: 'Control → Prop',
+          raw: { name, value }
+        })),
+        unknown: []
+      }
+    };
+
+    render(<ControlDetail control={record} />);
+
+    const metadata = screen.getByRole('region', { name: 'Metadaten' });
+    [
+      'Zielobjektkategorien',
+      'Gefährdungen',
+      'Vertraulichkeit',
+      'Integrität',
+      'Verfügbarkeit',
+      'Authentizität'
+    ].forEach((label) => {
+      expect(within(metadata).getByText(label)).toBeInTheDocument();
+    });
+    expect(within(metadata).getByText('Daten')).toBeInTheDocument();
+    expect(within(metadata).getByText('G 0.18')).toBeInTheDocument();
+  });
 });

@@ -3,6 +3,7 @@ import {
   CATALOG_REPOSITORY_URL,
   CATALOG_SOURCE_PATH
 } from '../config';
+import type { CatalogReference } from '../lib/types';
 
 interface SettingsProps {
   catalogUrl: string;
@@ -14,6 +15,7 @@ interface SettingsProps {
   lastUpdated?: number;
   catalogStatus?: string;
   isCuratedSource: boolean;
+  catalogReferences: CatalogReference[];
   catalogMeta?: {
     title?: string;
     version?: string;
@@ -34,7 +36,8 @@ const SettingsPanel: React.FC<SettingsProps> = ({
   lastUpdated,
   catalogMeta,
   catalogStatus,
-  isCuratedSource
+  isCuratedSource,
+  catalogReferences
 }) => {
   const formatMaybeDate = (value?: string): string | undefined => {
     if (!value) return undefined;
@@ -184,6 +187,30 @@ const SettingsPanel: React.FC<SettingsProps> = ({
                       {CATALOG_SOURCE_PATH}
                     </a>
                   </dd>
+                  {catalogReferences.length ? (
+                    <>
+                      <dt>Fachliche Referenz</dt>
+                      <dd>
+                        <ul>
+                          {catalogReferences.map((reference, index) => (
+                            <li key={`${reference.title}-${index}`}>
+                              {reference.href ? (
+                                <a
+                                  href={reference.href}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  {reference.title}
+                                </a>
+                              ) : (
+                                reference.title
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </dd>
+                    </>
+                  ) : null}
                 </>
               ) : (
                 <>

@@ -1,21 +1,10 @@
 import { useId } from 'react';
+import { metadataLabel } from '../lib/metadata';
 import type { ControlRecord, ProjectedProp } from '../lib/types';
 
 interface ControlMetadataProps {
   record: ControlRecord;
 }
-
-const KNOWN_PROP_LABELS: Record<string, string> = {
-  sec_level: 'Sicherheitsniveau',
-  modal_verb: 'Modalverb',
-  action_word: 'Handlungswort',
-  result: 'Ergebnis',
-  result_specification: 'Ergebnisspezifikation',
-  documentation: 'Dokumentation',
-  'alt-identifier': 'Technische Kennung',
-  effort_level: 'Aufwandsstufe',
-  tags: 'Tags'
-};
 
 const sourceLevelLabel = (prop: ProjectedProp): string =>
   prop.sourceLevel === 'part' ? 'Part' : 'Control';
@@ -61,10 +50,7 @@ const ControlMetadata = ({ record }: ControlMetadataProps) => {
       {known.length ? (
         <ul className="metadata-list">
           {known.map((prop, index) => {
-            const label =
-              (prop.name && KNOWN_PROP_LABELS[prop.name]) ??
-              prop.name ??
-              'Metadatum';
+            const label = metadataLabel(prop.name);
 
             return (
               <li key={`${prop.sourcePath}-${prop.name ?? 'prop'}-${index}`}>

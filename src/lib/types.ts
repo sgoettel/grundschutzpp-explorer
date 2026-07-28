@@ -13,6 +13,25 @@ export interface CatalogParam {
   [key: string]: unknown;
 }
 
+export interface CatalogLink {
+  href?: string;
+  rel?: string;
+  text?: string;
+  [key: string]: unknown;
+}
+
+export interface CatalogResourceLink {
+  href?: string;
+  [key: string]: unknown;
+}
+
+export interface CatalogResource {
+  uuid?: string;
+  title?: string;
+  rlinks?: CatalogResourceLink[];
+  [key: string]: unknown;
+}
+
 export interface CatalogPart {
   id?: string;
   name?: string;
@@ -31,6 +50,7 @@ export interface CatalogControl {
   props?: CatalogProp[];
   params?: CatalogParam[];
   parts?: CatalogPart[];
+  links?: CatalogLink[];
   controls?: CatalogControl[];
   [key: string]: unknown;
 }
@@ -47,11 +67,27 @@ export interface CatalogGroup {
 export interface CatalogRoot {
   catalog?: {
     title?: string;
+    metadata?: {
+      links?: CatalogLink[];
+      [key: string]: unknown;
+    };
     groups?: CatalogGroup[];
     controls?: CatalogControl[];
+    'back-matter'?: {
+      resources?: CatalogResource[];
+      [key: string]: unknown;
+    };
     [key: string]: unknown;
   };
   [key: string]: unknown;
+}
+
+export interface ControlRelationship {
+  kind: 'required' | 'related';
+  targetId: string;
+  targetTitle?: string;
+  sourcePath: string;
+  raw: CatalogLink;
 }
 
 export interface ControlRecord {
@@ -61,6 +97,7 @@ export interface ControlRecord {
   fullText: string;
   control: CatalogControl;
   metadata: ControlMetadataProjection;
+  relationships?: ControlRelationship[];
 }
 
 export interface ProjectedProp {
@@ -94,9 +131,18 @@ export interface PracticeRecord {
   raw: CatalogGroup;
 }
 
+export interface CatalogReference {
+  title: string;
+  href?: string;
+  sourcePath: string;
+  rawLink: CatalogLink;
+  rawResource?: CatalogResource;
+}
+
 export interface CatalogParsingResult {
   source: CatalogRoot | null;
   controls: ControlRecord[];
   practices: PracticeRecord[];
+  references: CatalogReference[];
   warnings: string[];
 }

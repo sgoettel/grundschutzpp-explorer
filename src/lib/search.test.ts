@@ -28,6 +28,20 @@ const records: ControlRecord[] = [
           sourceLevel: 'control',
           sourcePath: 'Control → Prop',
           raw: { name: 'sec_level', value: 'Hoch' }
+        },
+        {
+          name: 'target_object_categories',
+          value: 'Daten',
+          sourceLevel: 'part',
+          sourcePath: 'Control → statement-Part → Prop',
+          raw: { name: 'target_object_categories', value: 'Daten' }
+        },
+        {
+          name: 'threats',
+          value: 'G 0.18',
+          sourceLevel: 'control',
+          sourcePath: 'Control → Prop',
+          raw: { name: 'threats', value: 'G 0.18' }
         }
       ],
       unknown: []
@@ -89,9 +103,16 @@ describe('buildIndex', () => {
       snippet: 'Nachweis zur Verschlüsselung dokumentieren.'
     });
 
-    expect(query('Hoch')[0]).toMatchObject({
-      primaryField: 'metadata',
-      snippet: 'Hoch'
+    expect(query('Hoch')[0]?.primaryField).toBe('metadata');
+    expect(query('Hoch')[0]?.snippet).toContain('Hoch');
+    expect(query('Gefährdungen')[0]).toMatchObject({
+      id: 'GS-EXAKT',
+      primaryField: 'metadata'
+    });
+    expect(query('Gefährdungen')[0]?.snippet).toContain('Gefährdungen');
+    expect(query('Daten')[0]).toMatchObject({
+      id: 'GS-EXAKT',
+      primaryField: 'metadata'
     });
     expect(query('GS-EXAKT')[0]).toMatchObject({
       primaryField: 'id',

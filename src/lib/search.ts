@@ -1,5 +1,6 @@
 import MiniSearch from 'minisearch';
 import type { SearchResult } from 'minisearch';
+import { metadataLabel } from './metadata';
 import { resolveParameterInserts } from './parameters';
 import type { CatalogPart, CatalogParam, ControlRecord } from './types';
 
@@ -100,8 +101,11 @@ const createSearchDocument = (record: ControlRecord): SearchDocument => {
     requirement: fachlichText.requirement.join(' '),
     guidance: fachlichText.guidance.join(' '),
     metadata: record.metadata.known
-      .map((prop) => prop.value)
-      .filter((value): value is string => Boolean(value))
+      .map((prop) =>
+        prop.value
+          ? `${metadataLabel(prop.name)} ${prop.value}`
+          : metadataLabel(prop.name)
+      )
       .join(' ')
   };
 };

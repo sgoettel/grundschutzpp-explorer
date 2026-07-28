@@ -11,7 +11,11 @@ import type { SearchHit } from './lib/search';
 import { parseCatalog } from './lib/catalog';
 import { exportCsv, exportMarkdown } from './lib/exporters';
 import { clearCache, loadCatalog, saveCatalog } from './lib/storage';
-import type { ControlRecord, PracticeRecord } from './lib/types';
+import type {
+  CatalogReference,
+  ControlRecord,
+  PracticeRecord
+} from './lib/types';
 
 interface HashState {
   url?: string;
@@ -115,6 +119,9 @@ const App: React.FC = () => {
   const [isFetching, setIsFetching] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<number | undefined>(undefined);
   const [catalogMeta, setCatalogMeta] = useState<CatalogMeta>({});
+  const [catalogReferences, setCatalogReferences] = useState<
+    CatalogReference[]
+  >([]);
   const [searchResults, setSearchResults] = useState<SearchHit[]>([]);
   const [selectedId, setSelectedId] = useState<string | undefined>(initialHash.id);
   const [selectedPracticeId, setSelectedPracticeId] = useState<
@@ -195,6 +202,7 @@ const App: React.FC = () => {
       setWarnings(parsed.warnings);
       setControls(parsed.controls);
       setPractices(parsed.practices);
+      setCatalogReferences(parsed.references);
       setLastUpdated(Date.now());
       setStatus(
         catalogUrl === DEFAULT_CATALOG_URL
@@ -211,6 +219,7 @@ const App: React.FC = () => {
         );
         setControls(parsed.controls);
         setPractices(parsed.practices);
+        setCatalogReferences(parsed.references);
         setLastUpdated(cached.fetchedAt);
       }
       setStatus(
@@ -231,7 +240,12 @@ const App: React.FC = () => {
   useEffect(() => {
     const restoreFromCache = async () => {
       setCatalogMeta({});
+      setCatalogReferences([]);
       setLastUpdated(undefined);
+      setControls([]);
+      setPractices([]);
+      setWarnings([]);
+      setSelectedIds(new Set());
       const cached = await loadCatalog(catalogUrl);
       if (cached) {
         setLastUpdated(cached.fetchedAt);
@@ -240,6 +254,7 @@ const App: React.FC = () => {
         setWarnings(parsed.warnings);
         setControls(parsed.controls);
         setPractices(parsed.practices);
+        setCatalogReferences(parsed.references);
       }
       await fetchAndIndex(Boolean(cached));
     };
@@ -361,6 +376,7 @@ const App: React.FC = () => {
         isFetching={isFetching}
         lastUpdated={lastUpdated}
         catalogMeta={catalogMeta}
+        catalogReferences={catalogReferences}
         catalogStatus={status}
         isCuratedSource={catalogUrl === DEFAULT_CATALOG_URL}
       />

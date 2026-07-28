@@ -1,5 +1,9 @@
-import React from 'react';
-import type { CatalogPart, ControlRecord } from '../lib/types';
+import React, { useId } from 'react';
+import type {
+  CatalogPart,
+  ControlRecord,
+  ControlRelationship
+} from '../lib/types';
 import ControlMetadata from './ControlMetadata';
 import IdBadge from './IdBadge';
 import ResolvedProse from './ResolvedProse';
@@ -36,7 +40,43 @@ const collectFachlichContent = (
     return [...current, ...collectFachlichContent(part.parts, kind)];
   }) ?? [];
 
+const RelationshipList = ({
+  heading,
+  relationships
+}: {
+  heading: string;
+  relationships: ControlRelationship[];
+}) => (
+  <div>
+    <h5>{heading}</h5>
+    <ul>
+      {relationships.map((relationship, index) => (
+        <li key={`${relationship.kind}-${relationship.targetId}-${index}`}>
+          {relationship.targetTitle ? (
+            <>
+              {relationship.targetTitle} <IdBadge id={relationship.targetId} />
+            </>
+          ) : (
+            <IdBadge id={relationship.targetId} />
+          )}
+          <details className="metadata-source-details">
+            <summary>Herkunft</summary>
+            <dl>
+              <dt>Beziehungsart</dt>
+              <dd>{relationship.kind}</dd>
+              <dt>Logischer Quellpfad</dt>
+              <dd>{relationship.sourcePath}</dd>
+            </dl>
+          </details>
+        </li>
+      ))}
+    </ul>
+  </div>
+);
+
 const ControlDetail: React.FC<DetailProps> = ({ control }) => {
+  const relationshipsHeadingId = useId();
+
   if (!control) {
     return <div className="detail">Select a control to see details.</div>;
   }
@@ -54,6 +94,14 @@ const ControlDetail: React.FC<DetailProps> = ({ control }) => {
   const otherParts = parts.filter(
     (part) => part.name !== 'statement' && part.name !== 'guidance'
   );
+  const requiredRelationships =
+    control.relationships?.filter(
+      (relationship) => relationship.kind === 'required'
+    ) ?? [];
+  const relatedRelationships =
+    control.relationships?.filter(
+      (relationship) => relationship.kind === 'related'
+    ) ?? [];
 
   return (
     <div className="detail" aria-live="polite">
@@ -117,6 +165,32 @@ const ControlDetail: React.FC<DetailProps> = ({ control }) => {
       )}
 
       <ControlMetadata record={control} />
+
+      {control.relationships?.length ? (
+        <section
+          aria-labelledby={relationshipsHeadingId}
+          className="metadata-section"
+        >
+          <div className="header">
+            <h4 id={relationshipsHeadingId}>Beziehungen</h4>
+            <span className="badge">
+              BSI-Quelldaten · vom Explorer aufgelöst
+            </span>
+          </div>
+          {requiredRelationships.length ? (
+            <RelationshipList
+              heading="Erforderliche Anforderungen"
+              relationships={requiredRelationships}
+            />
+          ) : null}
+          {relatedRelationships.length ? (
+            <RelationshipList
+              heading="Verwandte Anforderungen"
+              relationships={relatedRelationships}
+            />
+          ) : null}
+        </section>
+      ) : null}
     </div>
   );
 };
