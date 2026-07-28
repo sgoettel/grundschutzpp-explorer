@@ -112,7 +112,7 @@ const ControlDetail: React.FC<DetailProps> = ({ control }) => {
 
       {control.groupPath.length > 0 && (
         <nav aria-label="Breadcrumb" style={{ margin: '0.25rem 0 0.5rem', opacity: 0.75 }}>
-          {control.groupPath.join(' › ')}
+          {[...control.groupPath, control.title].join(' › ')}
         </nav>
       )}
 

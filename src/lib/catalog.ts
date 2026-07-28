@@ -176,6 +176,14 @@ const collectGroupControlIds = (group: CatalogGroup): string[] => [
 ];
 
 const groupDescription = (group: CatalogGroup): string | undefined => {
+  const labelRemarks = group.props
+    ?.filter((prop) => prop.name === 'label')
+    .map((prop) => prop.remarks?.trim())
+    .filter((value): value is string => Boolean(value));
+  if (labelRemarks?.length) {
+    return labelRemarks.join('\n\n');
+  }
+
   const prose = group.parts
     ?.map((part) => part.prose?.trim())
     .filter((value): value is string => Boolean(value));

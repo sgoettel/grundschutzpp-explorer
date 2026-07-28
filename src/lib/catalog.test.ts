@@ -160,6 +160,34 @@ describe('parseCatalog', () => {
     expect(topic?.raw).toBe(source.catalog.groups[0].groups[0]);
   });
 
+  it('projects real BSI practice descriptions from label prop remarks', () => {
+    const result = parseCatalog({
+      catalog: {
+        groups: [
+          {
+            id: 'GC',
+            title: 'Governance und Compliance',
+            props: [
+              {
+                name: 'label',
+                value: 'GC',
+                remarks: 'Strategische BSI-Beschreibung der Praktik.'
+              },
+              {
+                name: 'alt-identifier',
+                value: 'technical-id'
+              }
+            ]
+          }
+        ]
+      }
+    });
+
+    expect(result.practices[0]?.description).toBe(
+      'Strategische BSI-Beschreibung der Praktik.'
+    );
+  });
+
   it('projects required and related controls and resolves catalog references through back matter', () => {
     const source = {
       catalog: {

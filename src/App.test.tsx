@@ -179,6 +179,44 @@ describe('App catalog navigation', () => {
     );
   });
 
+  it('keeps catalog URL and cache controls outside the primary path', async () => {
+    window.location.hash = '#/';
+    vi.mocked(loadCatalog).mockResolvedValue(null);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => catalog
+      })
+    );
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole('button', { name: 'Organisation' })
+    ).toBeInTheDocument();
+    const summary = screen.getByText('Technische Einstellungen');
+    const technicalSettings = summary.closest('details');
+    expect(technicalSettings).not.toBeNull();
+    expect(technicalSettings).not.toHaveAttribute('open');
+    expect(
+      screen.getByRole('textbox', { name: 'Catalog URL' })
+    ).not.toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Clear cache' })
+    ).not.toBeVisible();
+
+    fireEvent.click(summary);
+
+    expect(technicalSettings).toHaveAttribute('open');
+    expect(
+      screen.getByRole('textbox', { name: 'Catalog URL' })
+    ).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Clear cache' })
+    ).toBeVisible();
+  });
+
   it('keeps the cached catalog when the online check fails', async () => {
     window.location.hash = '#/';
     vi.mocked(loadCatalog).mockResolvedValue({
@@ -277,6 +315,22 @@ describe('App catalog navigation', () => {
         name: 'BSI IT-Grundschutz Edition 2023'
       })
     ).toHaveAttribute('href', 'https://www.bsi.bund.de/grundschutz');
+    expect(
+      within(provenance).getByRole('heading', {
+        name: 'Aus dem BSI-Repository'
+      })
+    ).toBeInTheDocument();
+    expect(
+      within(provenance).getByRole('link', { name: 'CC BY-SA 4.0' })
+    ).toHaveAttribute(
+      'href',
+      'https://github.com/BSI-Bund/Stand-der-Technik-Bibliothek/blob/main/LICENSE'
+    );
+    expect(
+      within(provenance).getByText(
+        'Bundesamt für Sicherheit in der Informationstechnik (BSI), Stand-der-Technik-Bibliothek'
+      )
+    ).toBeInTheDocument();
   });
 
   it('labels and caches a custom source separately', async () => {
@@ -329,6 +383,7 @@ describe('App catalog navigation', () => {
       )
     );
     fetchMock.mockClear();
+    fireEvent.click(screen.getByText('Technische Einstellungen'));
 
     fireEvent.change(screen.getByRole('textbox', { name: 'Catalog URL' }), {
       target: { value: customUrl }
@@ -370,6 +425,7 @@ describe('App catalog navigation', () => {
     expect(
       await screen.findByRole('button', { name: 'Organisation' })
     ).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Technische Einstellungen'));
 
     fireEvent.change(screen.getByRole('textbox', { name: 'Catalog URL' }), {
       target: { value: customUrl }

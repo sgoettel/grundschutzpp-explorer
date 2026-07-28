@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  CATALOG_LICENSE_URL,
   CATALOG_REPOSITORY_URL,
   CATALOG_SOURCE_PATH
 } from '../config';
@@ -48,71 +49,77 @@ const SettingsPanel: React.FC<SettingsProps> = ({
   const lastModifiedLabel = formatMaybeDate(catalogMeta?.lastModified);
 
   return (
-    <div className="panel" aria-labelledby="settings-heading">
-<div
-  className="header"
-  style={{
-    marginBottom: '0.5rem',
-    display: 'flex',
-    gap: '0.5rem',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-  }}
->
-  <h2 id="settings-heading">Settings</h2>
+    <div className="panel">
+      <details className="technical-settings">
+        <summary>Technische Einstellungen</summary>
+        <div
+          className="header"
+          style={{
+            margin: '0.75rem 0 0.5rem',
+            display: 'flex',
+            gap: '0.5rem',
+            flexWrap: 'wrap',
+            alignItems: 'center'
+          }}
+        >
+          <h2 id="settings-heading">Settings</h2>
 
+          <div
+            style={{
+              marginLeft: 'auto',
+              display: 'flex',
+              gap: '0.5rem',
+              flexWrap: 'wrap',
+              justifyContent: 'flex-end',
+              alignItems: 'center'
+            }}
+          >
+            {lastUpdated && (
+              <span className="badge">
+                Cached {new Date(lastUpdated).toLocaleString()}
+              </span>
+            )}
 
-  <div
-    style={{
-      marginLeft: 'auto',
-      display: 'flex',
-      gap: '0.5rem',
-      flexWrap: 'wrap',
-      justifyContent: 'flex-end',
-      alignItems: 'center',
-    }}
-  >
-    {lastUpdated && (
-      <span className="badge">Cached {new Date(lastUpdated).toLocaleString()}</span>
-    )}
+            {catalogMeta?.version && (
+              <span className="badge">
+                Catalog v{catalogMeta.version}
+                {lastModifiedLabel
+                  ? ` · last-modified ${lastModifiedLabel}`
+                  : ''}
+              </span>
+            )}
 
-    {catalogMeta?.version && (
-      <span className="badge">
-        Catalog v{catalogMeta.version}
-        {lastModifiedLabel ? ` · last-modified ${lastModifiedLabel}` : ''}
-      </span>
-    )}
+            {catalogMeta?.oscalVersion && (
+              <span className="badge">OSCAL {catalogMeta.oscalVersion}</span>
+            )}
+          </div>
+        </div>
 
-    {catalogMeta?.oscalVersion && <span className="badge">OSCAL {catalogMeta.oscalVersion}</span>}
-  </div>
-</div>
-
-
-
-
-      <div className="settings-grid">
-        <label className="input-row">
-          <span>Catalog URL</span>
-          <input
-            type="url"
-            value={catalogUrl}
-            onChange={(e) => onChangeUrl(e.target.value)}
-            placeholder="https://.../catalog.json"
-            aria-label="Catalog URL"
-          />
-        </label>
-      </div>
-      <div className="actions" style={{ marginTop: '0.75rem' }}>
-        <button type="button" onClick={onFetch} disabled={isFetching}>
-          {isFetching ? 'Fetching…' : 'Fetch & Index'}
-        </button>
-        <button type="button" onClick={onClearCache} disabled={isFetching}>
-          Clear cache
-        </button>
-        <span className="notice" aria-live="polite">
-          Paste a custom URL and press Fetch to reload. Data is cached locally for offline reuse.
-        </span>
-      </div>
+        <div className="settings-grid">
+          <label className="input-row">
+            <span>Catalog URL</span>
+            <input
+              type="url"
+              value={catalogUrl}
+              onChange={(e) => onChangeUrl(e.target.value)}
+              placeholder="https://.../catalog.json"
+              aria-label="Catalog URL"
+            />
+          </label>
+        </div>
+        <div className="actions" style={{ marginTop: '0.75rem' }}>
+          <button type="button" onClick={onFetch} disabled={isFetching}>
+            {isFetching ? 'Fetching…' : 'Fetch & Index'}
+          </button>
+          <button type="button" onClick={onClearCache} disabled={isFetching}>
+            Clear cache
+          </button>
+          <span className="notice" aria-live="polite">
+            Paste a custom URL and press Fetch to reload. Data is cached
+            locally for offline reuse.
+          </span>
+        </div>
+      </details>
 
       <section
         className="catalog-provenance"
@@ -163,7 +170,9 @@ const SettingsPanel: React.FC<SettingsProps> = ({
           </div>
 
           <div>
-            <h4>Quelle</h4>
+            <h4>
+              {isCuratedSource ? 'Aus dem BSI-Repository' : 'Quelle'}
+            </h4>
             <dl>
               {isCuratedSource ? (
                 <>
@@ -186,6 +195,21 @@ const SettingsPanel: React.FC<SettingsProps> = ({
                     >
                       {CATALOG_SOURCE_PATH}
                     </a>
+                  </dd>
+                  <dt>Lizenz</dt>
+                  <dd>
+                    <a
+                      href={CATALOG_LICENSE_URL}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      CC BY-SA 4.0
+                    </a>
+                  </dd>
+                  <dt>Attribution</dt>
+                  <dd>
+                    Bundesamt für Sicherheit in der Informationstechnik
+                    (BSI), Stand-der-Technik-Bibliothek
                   </dd>
                   {catalogReferences.length ? (
                     <>

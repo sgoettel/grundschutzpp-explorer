@@ -2,6 +2,7 @@ export interface CatalogProp {
   name?: string;
   value?: string;
   ns?: string;
+  remarks?: string;
   [key: string]: unknown;
 }
 
@@ -58,6 +59,7 @@ export interface CatalogControl {
 export interface CatalogGroup {
   id?: string;
   title?: string;
+  props?: CatalogProp[];
   parts?: CatalogPart[];
   controls?: CatalogControl[];
   groups?: CatalogGroup[];

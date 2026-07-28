@@ -39,6 +39,11 @@ describe('ControlDetail', () => {
     expect(screen.getByText('festgelegte Frist')).toBeInTheDocument();
     expect(screen.getByText('60 Tage')).toBeInTheDocument();
     expect(
+      screen.getByRole('navigation', { name: 'Breadcrumb' })
+    ).toHaveTextContent(
+      'Organisation › Regelungen › Fristen festlegen'
+    );
+    expect(
       screen.queryByRole('heading', { name: 'Konkretisierungen' })
     ).not.toBeInTheDocument();
   });
