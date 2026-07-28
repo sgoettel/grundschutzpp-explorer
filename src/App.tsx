@@ -187,21 +187,21 @@ const App: React.FC = () => {
       if (!response.ok) throw new Error(`Failed to download catalog (${response.status})`);
       const payload = await response.json();
 
-      setCatalogMeta(extractCatalogMeta(payload));
-
-      await saveCatalog(catalogUrl, payload);
       setStatus('Parsing catalog…');
       const parsed = parseCatalog(payload);
-      setWarnings(parsed.warnings);
       if (!parsed.controls.length) {
         throw new Error('Catalog parsed but no controls were found.');
       }
-      setControls(parsed.controls);
-      setPractices(parsed.practices);
-      setLastUpdated(Date.now());
       setStatus('Indexing…');
       const { query: runQuery } = buildIndex(parsed.controls);
       const results = runQuery(query, groupFilter ? { group: groupFilter } : undefined);
+
+      await saveCatalog(catalogUrl, payload);
+      setCatalogMeta(extractCatalogMeta(payload));
+      setWarnings(parsed.warnings);
+      setControls(parsed.controls);
+      setPractices(parsed.practices);
+      setLastUpdated(Date.now());
       setSearchResults(results);
       } catch (err) {
         const cached = await loadCatalog(catalogUrl);

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { vi } from 'vitest';
+import { afterEach, vi } from 'vitest';
 import App from './App';
-import { loadCatalog } from './lib/storage';
+import { loadCatalog, saveCatalog } from './lib/storage';
 
 vi.mock('./lib/storage', () => ({
   clearCache: vi.fn(),
@@ -38,6 +38,11 @@ const catalog = {
   }
 };
 
+afterEach(() => {
+  vi.clearAllMocks();
+  vi.unstubAllGlobals();
+});
+
 describe('App catalog navigation', () => {
   it('uses the practice hierarchy when the search is empty', async () => {
     window.location.hash = '#/';
@@ -71,6 +76,38 @@ describe('App catalog navigation', () => {
     );
     expect(
       screen.getByRole('heading', { name: /Regelungen festlegen.*ORG\.1/ })
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the working cache when an online catalog has no controls', async () => {
+    window.location.hash = '#/';
+    vi.mocked(loadCatalog).mockResolvedValue({
+      url: 'https://example.test/catalog.json',
+      fetchedAt: 1,
+      payload: catalog
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ catalog: {} })
+      })
+    );
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole('button', { name: 'Organisation' })
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fetch & Index' }));
+
+    expect(
+      await screen.findByText('Catalog parsed but no controls were found.')
+    ).toBeInTheDocument();
+    expect(saveCatalog).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('button', { name: 'Organisation' })
     ).toBeInTheDocument();
   });
 });
