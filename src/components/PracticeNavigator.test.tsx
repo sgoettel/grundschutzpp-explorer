@@ -1,8 +1,46 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { ControlRecord, PracticeRecord } from '../lib/types';
 import PracticeNavigator from './PracticeNavigator';
 
 describe('PracticeNavigator', () => {
+  it('keeps the fachlich hierarchy in a register navigation', () => {
+    const practices: PracticeRecord[] = [
+      {
+        id: 'practice-organisation',
+        title: 'Organisation',
+        directControlIds: [],
+        topics: [
+          {
+            id: 'topic-regelungen',
+            title: 'Regelungen',
+            controlIds: ['ORG.1'],
+            raw: { id: 'topic-regelungen', title: 'Regelungen' }
+          }
+        ],
+        raw: { id: 'practice-organisation', title: 'Organisation' }
+      }
+    ];
+
+    render(
+      <PracticeNavigator
+        practices={practices}
+        controls={[]}
+        selectedPracticeId="practice-organisation"
+        onSelectPractice={() => undefined}
+        onSelectTopic={() => undefined}
+        onSelectControl={() => undefined}
+      />
+    );
+
+    const register = screen.getByRole('navigation', { name: 'Register' });
+    expect(
+      within(register).getByRole('button', { name: /Organisation/ })
+    ).toHaveAttribute('aria-expanded', 'true');
+    expect(
+      within(register).getByRole('button', { name: /Regelungen/ })
+    ).toBeInTheDocument();
+  });
+
   it('shows source descriptions and derived counts and opens a practice', () => {
     const practices: PracticeRecord[] = [
       {
@@ -39,18 +77,17 @@ describe('PracticeNavigator', () => {
       />
     );
 
-    expect(
-      screen.getByRole('heading', { name: 'Praktiken' })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('Organisation wirksam gestalten.')
-    ).toBeInTheDocument();
-    expect(screen.getByText('2 Themen · 3 Anforderungen')).toBeInTheDocument();
-    expect(screen.getByText('Explorer-Ableitung')).toBeInTheDocument();
-
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Organisation' })
+    const register = screen.getByRole('navigation', { name: 'Register' });
+    const practiceButton = within(register).getByRole('button', {
+      name: 'Organisation'
+    });
+    expect(practiceButton).toHaveAttribute(
+      'title',
+      'Organisation wirksam gestalten.'
     );
+    expect(practiceButton).toHaveTextContent(/01\s*Organisation\s*3/);
+
+    fireEvent.click(practiceButton);
     expect(selected).toEqual(['practice-organisation']);
   });
 
@@ -106,12 +143,12 @@ describe('PracticeNavigator', () => {
     );
 
     expect(
-      screen.getByRole('heading', { name: 'Themen in Organisation' })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('Verbindliche Regelungen schaffen.')
-    ).toBeInTheDocument();
-    expect(screen.getByText('2 Anforderungen')).toBeInTheDocument();
+      screen.getByRole('button', { name: 'Organisation' })
+    ).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'Regelungen' })).toHaveAttribute(
+      'title',
+      'Verbindliche Regelungen schaffen.'
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Regelungen' }));
     expect(selectedTopics).toEqual(['topic-regelungen']);
@@ -129,8 +166,8 @@ describe('PracticeNavigator', () => {
     );
 
     expect(
-      screen.getByRole('heading', { name: 'Regelungen' })
-    ).toBeInTheDocument();
+      screen.getByRole('button', { name: 'Regelungen' })
+    ).toHaveAttribute('aria-expanded', 'true');
     expect(
       screen.getByRole('button', { name: /Regelungen festlegen.*ORG\.1/ })
     ).toBeInTheDocument();

@@ -24,7 +24,6 @@ const SourceDetails = ({ prop }: { prop: ProjectedProp }) => (
 );
 
 const ControlMetadata = ({ record }: ControlMetadataProps) => {
-  const headingId = useId();
   const fallbackHeadingId = useId();
   const controlClass = record.control.class?.trim();
   const { known, unknown } = record.metadata;
@@ -35,13 +34,14 @@ const ControlMetadata = ({ record }: ControlMetadataProps) => {
 
   return (
     <section
-      aria-labelledby={headingId}
+      aria-label="Metadaten"
+      id="merkmale"
       className="control-metadata metadata-section"
     >
-      <h4 id={headingId}>Metadaten</h4>
+      <h4 className="section-label">Merkmale</h4>
 
       {controlClass ? (
-        <div className="metadata-item">
+        <div className="metadata-item technical-metadata">
           <strong>Technische Klassifikation</strong>
           <span>{controlClass}</span>
         </div>

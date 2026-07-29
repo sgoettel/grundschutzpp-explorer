@@ -85,23 +85,205 @@ const catalogWithMetadata = {
   }
 };
 
+const crossPracticeCatalog = {
+  catalog: {
+    groups: [
+      ...catalog.catalog.groups,
+      {
+        id: 'practice-risiko',
+        title: 'Risikomanagement',
+        groups: [
+          {
+            id: 'topic-risiken',
+            title: 'Risiken',
+            controls: [
+              {
+                id: 'RISK.1',
+                title: 'Risiken behandeln',
+                parts: [
+                  {
+                    name: 'statement',
+                    prose: 'Die Organisation behandelt erkannte Risiken.'
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+};
+
 afterEach(() => {
   vi.clearAllMocks();
   vi.unstubAllGlobals();
 });
 
 const openCatalogProvenance = (): HTMLElement => {
-  const summary = screen.getByText('Herkunftsnachweis');
-  const details = summary.closest('details');
+  const existingPanel = screen.queryByRole('complementary', {
+    name: 'Katalogstand'
+  });
+  if (existingPanel) return existingPanel;
 
-  expect(details).not.toBeNull();
-  expect(details).not.toHaveAttribute('open');
-  fireEvent.click(summary);
-
-  return screen.getByRole('region', { name: 'Herkunftsnachweis' });
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Katalogstand öffnen' })
+  );
+  return screen.getByRole('complementary', { name: 'Katalogstand' });
 };
 
 describe('App catalog navigation', () => {
+  it('uses the approved register, search strip, start view, and catalog panel', async () => {
+    window.location.hash = '#/';
+    vi.mocked(loadCatalog).mockResolvedValue(null);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => catalogWithMetadata
+      })
+    );
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole('navigation', { name: 'Register' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', {
+        name: 'Anwenderkatalog Grundschutz++',
+        level: 1
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Katalogstand öffnen' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('complementary', { name: 'Katalogstand' })
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Katalogstand öffnen' })
+    );
+
+    const panel = screen.getByRole('complementary', {
+      name: 'Katalogstand'
+    });
+    expect(
+      within(panel).getByRole('textbox', { name: 'Katalog-URL' })
+    ).toBeInTheDocument();
+    expect(
+      within(panel).getByRole('button', { name: 'Cache leeren' })
+    ).toBeInTheDocument();
+    expect(
+      within(panel).getByRole('button', { name: 'Katalogstand schließen' })
+    ).toBeInTheDocument();
+  });
+
+  it('moves focus into transient panels and restores it when they close', async () => {
+    window.location.hash = '#/';
+    vi.mocked(loadCatalog).mockResolvedValue(null);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => catalog
+      })
+    );
+
+    render(<App />);
+
+    await screen.findByRole('button', { name: 'Organisation' });
+    const navigationTrigger = screen.getByRole('button', {
+      name: 'Register öffnen'
+    });
+    navigationTrigger.focus();
+    fireEvent.click(navigationTrigger);
+
+    expect(navigationTrigger).toHaveAttribute('aria-expanded', 'true');
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Zur Ausgangsansicht' })
+      ).toHaveFocus()
+    );
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => expect(navigationTrigger).toHaveFocus());
+
+    const catalogTrigger = screen.getByRole('button', {
+      name: 'Katalogstand öffnen'
+    });
+    catalogTrigger.focus();
+    fireEvent.click(catalogTrigger);
+    const closeButton = within(
+      screen.getByRole('complementary', { name: 'Katalogstand' })
+    ).getByRole('button', { name: 'Katalogstand schließen' });
+    await waitFor(() => expect(closeButton).toHaveFocus());
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => expect(catalogTrigger).toHaveFocus());
+  });
+
+  it('restores focus only after a narrow overlay releases the workspace', async () => {
+    window.location.hash = '#/';
+    vi.mocked(loadCatalog).mockResolvedValue(null);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => catalog
+      })
+    );
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn().mockReturnValue({
+        matches: true,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn()
+      })
+    );
+    const nativeFocus = HTMLElement.prototype.focus;
+    const focusSpy = vi
+      .spyOn(HTMLElement.prototype, 'focus')
+      .mockImplementation(function (this: HTMLElement) {
+        if (this.inert) return;
+        for (
+          let parent = this.parentElement;
+          parent;
+          parent = parent.parentElement
+        ) {
+          if (parent.inert) return;
+        }
+        nativeFocus.call(this);
+      });
+
+    render(<App />);
+
+    await screen.findByRole('button', {
+      name: 'Organisation',
+      hidden: true
+    });
+    const navigationTrigger = screen.getByRole('button', {
+      name: 'Register öffnen'
+    });
+    const navigationRail = screen
+      .getByRole('navigation', { name: 'Register', hidden: true })
+      .closest('aside') as HTMLElement;
+    await waitFor(() => expect(navigationRail.inert).toBe(true));
+
+    navigationTrigger.focus();
+    fireEvent.click(navigationTrigger);
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Zur Ausgangsansicht' })
+      ).toHaveFocus()
+    );
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => expect(navigationTrigger).toHaveFocus());
+    focusSpy.mockRestore();
+  });
+
   it('presents the product and its controls consistently in German', async () => {
     window.location.hash = '#/';
     vi.mocked(loadCatalog).mockResolvedValue(null);
@@ -117,11 +299,11 @@ describe('App catalog navigation', () => {
 
     await screen.findByRole('button', { name: 'Organisation' });
     expect(
-      screen.getByRole('heading', { name: 'Grundschutz++ Explorer' })
+      screen.getByRole('heading', { name: 'Anwenderkatalog Grundschutz++' })
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'Referenzansicht des aktuellen Grundschutz++-Katalogs.'
+        /Wählen Sie links eine Praktik oder suchen Sie direkt/
       )
     ).toBeInTheDocument();
     expect(
@@ -130,39 +312,34 @@ describe('App catalog navigation', () => {
     expect(
       screen.getByRole('combobox', { name: 'Bereich' })
     ).toHaveDisplayValue('Alle Bereiche');
-    expect(
-      screen.getByText(/Tastaturnavigation: Trefferliste fokussieren/)
-    ).toBeInTheDocument();
-
-    fireEvent.click(screen.getByText('Technische Einstellungen'));
-
-    expect(
-      screen.getByRole('heading', { name: 'Einstellungen' })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('textbox', { name: 'Katalog-URL' })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Abrufen und aufbereiten' })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Cache leeren' })
-    ).toBeInTheDocument();
-
     fireEvent.change(
       screen.getByRole('searchbox', { name: 'Anforderungen durchsuchen' }),
       { target: { value: 'ohne Treffer' } }
     );
 
     expect(
-      screen.getByRole('button', { name: 'Alle Treffer auswählen (0)' })
+      screen.getByRole('heading', {
+        name: '0 Treffer für „ohne Treffer“'
+      })
     ).toBeInTheDocument();
     expect(screen.getByText('Keine Treffer')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Auswählen' }));
     expect(
-      screen.getByText('Wähle eine Anforderung aus, um Details anzuzeigen.')
+      screen.getByRole('button', { name: 'Alle Treffer auswählen (0)' })
     ).toBeInTheDocument();
-    expect(screen.getByText(/Datenquelle:/)).toBeInTheDocument();
-    expect(screen.getByText(/Ansicht teilen:/)).toBeInTheDocument();
+
+    const panel = openCatalogProvenance();
+    expect(
+      within(panel).getByRole('button', {
+        name: 'Abrufen und aufbereiten'
+      })
+    ).toBeInTheDocument();
+    expect(
+      within(panel).getByText(
+        'Unabhängiges Community-Projekt, keine offizielle BSI-Anwendung.'
+      )
+    ).toBeInTheDocument();
   });
 
   it('loads the curated BSI catalog automatically when no cache exists', async () => {
@@ -189,6 +366,58 @@ describe('App catalog navigation', () => {
     );
   });
 
+  it('reconciles the register path when search results cross practices', async () => {
+    window.location.hash = '#/';
+    vi.mocked(loadCatalog).mockResolvedValue(null);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => crossPracticeCatalog
+      })
+    );
+
+    render(<App />);
+
+    const searchbox = await screen.findByRole('searchbox', {
+      name: 'Anforderungen durchsuchen'
+    });
+    fireEvent.change(searchbox, { target: { value: 'Regelungen festlegen' } });
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: /ORG\.1.*Regelungen festlegen/
+      })
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Organisation' })
+      ).toHaveAttribute('aria-expanded', 'true')
+    );
+
+    fireEvent.change(searchbox, { target: { value: 'Risiken behandeln' } });
+    await waitFor(() =>
+      expect(window.location.hash).toContain('q=Risiken+behandeln')
+    );
+    const historyLengthBeforeSelection = window.history.length;
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: /RISK\.1.*Risiken behandeln/
+      })
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Risikomanagement' })
+      ).toHaveAttribute('aria-expanded', 'true');
+      expect(
+        screen.getByRole('button', { name: 'Organisation' })
+      ).toHaveAttribute('aria-expanded', 'false');
+      expect(window.location.hash).toContain('practice=practice-risiko');
+      expect(window.location.hash).toContain('topic=topic-risiken');
+      expect(window.history.length - historyLengthBeforeSelection).toBe(1);
+    });
+  });
+
   it('uses the practice hierarchy when the search is empty', async () => {
     window.location.hash = '#/';
     vi.mocked(loadCatalog).mockResolvedValue({
@@ -207,7 +436,9 @@ describe('App catalog navigation', () => {
     render(<App />);
 
     expect(
-      await screen.findByRole('heading', { name: 'Praktiken' })
+      await screen.findByRole('heading', {
+        name: 'Anwenderkatalog Grundschutz++'
+      })
     ).toBeInTheDocument();
     expect(
       await screen.findByRole('button', { name: 'Organisation' })
@@ -218,20 +449,21 @@ describe('App catalog navigation', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Organisation' }));
     expect(
-      screen.getByRole('heading', { name: 'Themen in Organisation' })
+      screen.getByRole('heading', { name: '1 Anforderungen' })
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Regelungen' }));
     expect(
-      screen.getByRole('heading', { name: 'Regelungen' })
+      screen.getByRole('button', { name: /Regelungen festlegen.*ORG\.1/ })
     ).toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole('button', { name: /Regelungen festlegen.*ORG\.1/ })
     );
     expect(
-      screen.getByRole('heading', { name: /Regelungen festlegen.*ORG\.1/ })
+      screen.getByRole('heading', { name: 'Regelungen festlegen', level: 1 })
     ).toBeInTheDocument();
+    expect(screen.getByText('ORG.1')).toBeInTheDocument();
   });
 
   it('shows the cached catalog while checking the online update', async () => {
@@ -269,25 +501,20 @@ describe('App catalog navigation', () => {
     expect(
       await screen.findByRole('button', { name: 'Organisation' })
     ).toBeInTheDocument();
-    const summary = screen.getByText('Technische Einstellungen');
-    const technicalSettings = summary.closest('details');
-    expect(technicalSettings).not.toBeNull();
-    expect(technicalSettings).not.toHaveAttribute('open');
     expect(
-      screen.getByRole('textbox', { name: 'Katalog-URL' })
-    ).not.toBeVisible();
+      screen.queryByRole('textbox', { name: 'Katalog-URL' })
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Cache leeren' })
-    ).not.toBeVisible();
+      screen.queryByRole('button', { name: 'Cache leeren' })
+    ).not.toBeInTheDocument();
 
-    fireEvent.click(summary);
+    const panel = openCatalogProvenance();
 
-    expect(technicalSettings).toHaveAttribute('open');
     expect(
-      screen.getByRole('textbox', { name: 'Katalog-URL' })
+      within(panel).getByRole('textbox', { name: 'Katalog-URL' })
     ).toBeVisible();
     expect(
-      screen.getByRole('button', { name: 'Cache leeren' })
+      within(panel).getByRole('button', { name: 'Cache leeren' })
     ).toBeVisible();
   });
 
@@ -360,30 +587,12 @@ describe('App catalog navigation', () => {
 
     render(<App />);
 
-    const compactProvenance = await screen.findByText(
-      'Kuratierte BSI-Quelle · Version 2026-07-26 · Online-Stand erfolgreich geprüft'
-    );
-    const provenanceDetails = compactProvenance.closest('details');
-    expect(provenanceDetails).not.toBeNull();
-    expect(provenanceDetails).not.toHaveAttribute('open');
+    await screen.findByRole('button', { name: 'Organisation' });
     expect(
-      within(provenanceDetails as HTMLElement).getByRole('heading', {
-        name: 'Herkunftsnachweis',
-        level: 3
-      })
-    ).toBeVisible();
-    expect(
-      within(provenanceDetails as HTMLElement).getByText(
-        'Anwenderkatalog Grundschutz++'
-      )
-    ).not.toBeVisible();
+      screen.queryByRole('complementary', { name: 'Katalogstand' })
+    ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByText('Herkunftsnachweis'));
-
-    const provenance = screen.getByRole('region', {
-      name: 'Herkunftsnachweis'
-    });
-    expect(provenanceDetails).toHaveAttribute('open');
+    const provenance = openCatalogProvenance();
     expect(
       within(provenance).getByText('Kuratierte BSI-Quelle')
     ).toBeInTheDocument();
@@ -414,7 +623,7 @@ describe('App catalog navigation', () => {
     ).toHaveAttribute('href', 'https://www.bsi.bund.de/grundschutz');
     expect(
       within(provenance).getByRole('heading', {
-        name: 'Aus dem BSI-Repository'
+        name: 'Herkunft'
       })
     ).toBeInTheDocument();
     expect(
@@ -508,14 +717,15 @@ describe('App catalog navigation', () => {
       )
     );
     fetchMock.mockClear();
-    fireEvent.click(screen.getByText('Technische Einstellungen'));
+    const panel = openCatalogProvenance();
 
-    fireEvent.change(screen.getByRole('textbox', { name: 'Katalog-URL' }), {
-      target: { value: customUrl }
-    });
+    fireEvent.change(
+      within(panel).getByRole('textbox', { name: 'Katalog-URL' }),
+      { target: { value: customUrl } }
+    );
 
     expect(
-      screen.getByRole('textbox', { name: 'Katalog-URL' })
+      within(panel).getByRole('textbox', { name: 'Katalog-URL' })
     ).toHaveValue(customUrl);
     expect(
       within(openCatalogProvenance()).getByText('Kuratierte BSI-Quelle')
@@ -523,7 +733,7 @@ describe('App catalog navigation', () => {
     expect(fetchMock).not.toHaveBeenCalled();
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Abrufen und aufbereiten' })
+      within(panel).getByRole('button', { name: 'Abrufen und aufbereiten' })
     );
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(customUrl));
@@ -550,17 +760,18 @@ describe('App catalog navigation', () => {
     render(<App />);
 
     await screen.findByRole('button', { name: 'Organisation' });
-    fireEvent.click(screen.getByText('Technische Einstellungen'));
-    fireEvent.change(screen.getByRole('textbox', { name: 'Katalog-URL' }), {
-      target: { value: legacyUrl }
-    });
+    const panel = openCatalogProvenance();
+    fireEvent.change(
+      within(panel).getByRole('textbox', { name: 'Katalog-URL' }),
+      { target: { value: legacyUrl } }
+    );
     fireEvent.click(
-      screen.getByRole('button', { name: 'Abrufen und aufbereiten' })
+      within(panel).getByRole('button', { name: 'Abrufen und aufbereiten' })
     );
 
     await waitFor(() => expect(saveCatalog).toHaveBeenCalledTimes(2));
     expect(
-      screen.getByRole('textbox', { name: 'Katalog-URL' })
+      within(panel).getByRole('textbox', { name: 'Katalog-URL' })
     ).toHaveValue(curatedUrl);
     expect(window.location.hash).toBe('#/');
   });
@@ -583,13 +794,14 @@ describe('App catalog navigation', () => {
     expect(
       await screen.findByRole('button', { name: 'Organisation' })
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByText('Technische Einstellungen'));
+    const panel = openCatalogProvenance();
 
-    fireEvent.change(screen.getByRole('textbox', { name: 'Katalog-URL' }), {
-      target: { value: customUrl }
-    });
+    fireEvent.change(
+      within(panel).getByRole('textbox', { name: 'Katalog-URL' }),
+      { target: { value: customUrl } }
+    );
     fireEvent.click(
-      screen.getByRole('button', { name: 'Abrufen und aufbereiten' })
+      within(panel).getByRole('button', { name: 'Abrufen und aufbereiten' })
     );
 
     await waitFor(() =>

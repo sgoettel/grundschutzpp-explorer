@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   CATALOG_LICENSE_URL,
   CATALOG_REPOSITORY_URL,
@@ -6,17 +5,22 @@ import {
 } from '../config';
 import type { CatalogReference } from '../lib/types';
 
-interface SettingsProps {
+interface SettingsPanelProps {
   catalogUrl: string;
   activeCatalogUrl: string;
   onChangeUrl: (url: string) => void;
   onFetch: () => void;
   onClearCache: () => void;
+  onClose: () => void;
+  onExportCsv: () => void;
+  onExportMarkdown: () => void;
+  exportDisabled: boolean;
   isFetching: boolean;
   lastUpdated?: number;
   catalogStatus?: string;
   isCuratedSource: boolean;
   catalogReferences: CatalogReference[];
+  requirementCount: number;
   catalogMeta?: {
     title?: string;
     version?: string;
@@ -26,251 +30,227 @@ interface SettingsProps {
   };
 }
 
+const formatDate = (value?: string): string | undefined => {
+  if (!value) return undefined;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString('de-DE');
+};
 
-const SettingsPanel: React.FC<SettingsProps> = ({
+const ValueRow = ({
+  label,
+  children,
+  mono = false
+}: {
+  label: string;
+  children: React.ReactNode;
+  mono?: boolean;
+}) => (
+  <div className="panel-value-row">
+    <dt>{label}</dt>
+    <dd className={mono ? 'mono' : undefined}>{children}</dd>
+  </div>
+);
+
+const SettingsPanel = ({
   catalogUrl,
   activeCatalogUrl,
   onChangeUrl,
   onFetch,
   onClearCache,
+  onClose,
+  onExportCsv,
+  onExportMarkdown,
+  exportDisabled,
   isFetching,
   lastUpdated,
   catalogMeta,
   catalogStatus,
   isCuratedSource,
-  catalogReferences
-}) => {
-  const formatMaybeDate = (value?: string): string | undefined => {
-    if (!value) return undefined;
-    const d = new Date(value);
-    return Number.isNaN(d.getTime()) ? value : d.toLocaleString('de-DE');
-  };
-
-  const lastModifiedLabel = formatMaybeDate(catalogMeta?.lastModified);
+  catalogReferences,
+  requirementCount
+}: SettingsPanelProps) => {
   const sourceLabel = isCuratedSource
     ? 'Kuratierte BSI-Quelle'
     : 'Benutzerdefinierte Quelle';
-  const provenanceStatus = catalogStatus || 'Katalog wird vorbereitet';
+  const lastModified = formatDate(catalogMeta?.lastModified);
+  const fetchedAt = lastUpdated
+    ? new Date(lastUpdated).toLocaleString('de-DE')
+    : 'Noch nicht abgerufen';
 
   return (
-    <div className="panel">
-      <details className="technical-settings">
-        <summary>Technische Einstellungen</summary>
-        <div
-          className="header"
-          style={{
-            margin: '0.75rem 0 0.5rem',
-            display: 'flex',
-            gap: '0.5rem',
-            flexWrap: 'wrap',
-            alignItems: 'center'
-          }}
+    <aside
+      id="catalog-panel"
+      className="catalog-panel"
+      aria-labelledby="catalog-panel-heading"
+    >
+      <header className="catalog-panel-header">
+        <h2 id="catalog-panel-heading">Katalogstand</h2>
+        <button
+          type="button"
+          className="icon-button"
+          onClick={onClose}
+          aria-label="Katalogstand schließen"
         >
-          <h2 id="settings-heading">Einstellungen</h2>
+          ✕
+        </button>
+      </header>
 
-          <div
-            style={{
-              marginLeft: 'auto',
-              display: 'flex',
-              gap: '0.5rem',
-              flexWrap: 'wrap',
-              justifyContent: 'flex-end',
-              alignItems: 'center'
-            }}
-          >
-            {lastUpdated && (
-              <span className="badge">
-                Gespeichert {new Date(lastUpdated).toLocaleString('de-DE')}
-              </span>
-            )}
-
-            {catalogMeta?.version && (
-              <span className="badge">
-                Katalogversion {catalogMeta.version}
-                {lastModifiedLabel
-                  ? ` · letzte Änderung ${lastModifiedLabel}`
-                  : ''}
-              </span>
-            )}
-
-            {catalogMeta?.oscalVersion && (
-              <span className="badge">OSCAL {catalogMeta.oscalVersion}</span>
-            )}
-          </div>
-        </div>
-
-        <div className="settings-grid">
-          <label className="input-row">
+      <div className="catalog-panel-body">
+        <section aria-labelledby="catalog-source-heading">
+          <h3 className="section-label" id="catalog-source-heading">
+            Katalogquelle
+          </h3>
+          <label className="catalog-url-field">
             <span>Katalog-URL</span>
             <input
               type="url"
               value={catalogUrl}
-              onChange={(e) => onChangeUrl(e.target.value)}
-              placeholder="https://.../catalog.json"
+              onChange={(event) => onChangeUrl(event.target.value)}
+              placeholder="https://…/catalog.json"
               aria-label="Katalog-URL"
             />
           </label>
-        </div>
-        <div className="actions" style={{ marginTop: '0.75rem' }}>
-          <button type="button" onClick={onFetch} disabled={isFetching}>
-            {isFetching ? 'Abruf läuft…' : 'Abrufen und aufbereiten'}
-          </button>
-          <button type="button" onClick={onClearCache} disabled={isFetching}>
-            Cache leeren
-          </button>
-          <span className="notice" aria-live="polite">
-            Eine eigene URL kann hier abgerufen werden. Erfolgreich
-            aufbereitete Kataloge werden lokal gespeichert.
-          </span>
-        </div>
-      </details>
-
-      <details className="catalog-provenance">
-        <summary>
-          <span
-            className="catalog-provenance-title"
-            id="catalog-provenance-heading"
-            role="heading"
-            aria-level={3}
-          >
-            Herkunftsnachweis
-          </span>
-          <span className="catalog-provenance-summary">
-            {sourceLabel} · Version {catalogMeta?.version ?? 'nicht angegeben'}{' '}
-            · {provenanceStatus}
-          </span>
-        </summary>
-
-        <section
-          className="catalog-provenance-content"
-          aria-labelledby="catalog-provenance-heading"
-        >
-          <div className="header">
-            <span className="badge">{sourceLabel}</span>
+          <div className="panel-actions">
+            <button type="button" onClick={onFetch} disabled={isFetching}>
+              {isFetching ? 'Abruf läuft…' : 'Abrufen und aufbereiten'}
+            </button>
+            <button type="button" onClick={onClearCache} disabled={isFetching}>
+              Cache leeren
+            </button>
           </div>
-
-          <div className="catalog-provenance-grid">
-            <div>
-              <h4>
-                {isCuratedSource
-                  ? 'Aus den BSI-Quelldaten'
-                  : 'Aus den Quelldaten'}
-              </h4>
-              <dl>
-                <dt>Katalogtitel</dt>
-                <dd>{catalogMeta?.title ?? 'Nicht angegeben'}</dd>
-                <dt>Version</dt>
-                <dd>{catalogMeta?.version ?? 'Nicht angegeben'}</dd>
-                <dt>Letzte Änderung</dt>
-                <dd>{lastModifiedLabel ?? 'Nicht angegeben'}</dd>
-                <dt>OSCAL-Version</dt>
-                <dd>{catalogMeta?.oscalVersion ?? 'Nicht angegeben'}</dd>
-                <dt>Herausgeber</dt>
-                <dd>{catalogMeta?.publisher ?? 'Nicht angegeben'}</dd>
-              </dl>
-            </div>
-
-            <div>
-              <h4>Explorer-Angaben</h4>
-              <dl>
-                <dt>Abrufzeit</dt>
-                <dd>
-                  {lastUpdated
-                    ? new Date(lastUpdated).toLocaleString('de-DE')
-                    : 'Noch nicht abgerufen'}
-                </dd>
-                <dt>Aufbereitungsstatus</dt>
-                <dd>{provenanceStatus}</dd>
-              </dl>
-            </div>
-
-            <div>
-              <h4>
-                {isCuratedSource ? 'Aus dem BSI-Repository' : 'Quelle'}
-              </h4>
-              <dl>
-                {isCuratedSource ? (
-                  <>
-                    <dt>Repository</dt>
-                    <dd>
-                      <a
-                        href={CATALOG_REPOSITORY_URL}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        BSI-Repository
-                      </a>
-                    </dd>
-                    <dt>Quellpfad</dt>
-                    <dd>
-                      <a
-                        href={activeCatalogUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {CATALOG_SOURCE_PATH}
-                      </a>
-                    </dd>
-                    <dt>Lizenz</dt>
-                    <dd>
-                      <a
-                        href={CATALOG_LICENSE_URL}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        CC BY-SA 4.0
-                      </a>
-                    </dd>
-                    <dt>Namensnennung</dt>
-                    <dd>
-                      Bundesamt für Sicherheit in der Informationstechnik
-                      (BSI), Stand-der-Technik-Bibliothek
-                    </dd>
-                    {catalogReferences.length ? (
-                      <>
-                        <dt>Fachliche Referenz</dt>
-                        <dd>
-                          <ul>
-                            {catalogReferences.map((reference, index) => (
-                              <li key={`${reference.title}-${index}`}>
-                                {reference.href ? (
-                                  <a
-                                    href={reference.href}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                  >
-                                    {reference.title}
-                                  </a>
-                                ) : (
-                                  reference.title
-                                )}
-                              </li>
-                            ))}
-                          </ul>
-                        </dd>
-                      </>
-                    ) : null}
-                  </>
-                ) : (
-                  <>
-                    <dt>Benutzerdefinierte URL</dt>
-                    <dd>
-                      <a
-                        href={activeCatalogUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {activeCatalogUrl}
-                      </a>
-                    </dd>
-                  </>
-                )}
-              </dl>
-            </div>
-          </div>
+          <p className="panel-status" aria-live="polite">
+            Zuletzt abgerufen {fetchedAt} · {catalogStatus || 'Katalog wird vorbereitet'}.
+          </p>
         </section>
-      </details>
-    </div>
+
+        <section aria-labelledby="catalog-data-heading">
+          <h3 className="section-label" id="catalog-data-heading">
+            Katalog
+          </h3>
+          <dl className="panel-values">
+            <ValueRow label="Quelle">{sourceLabel}</ValueRow>
+            <ValueRow label="Katalogtitel">
+              {catalogMeta?.title ?? 'Nicht angegeben'}
+            </ValueRow>
+            <ValueRow label="Katalogversion" mono>
+              {catalogMeta?.version ?? 'Nicht angegeben'}
+            </ValueRow>
+            <ValueRow label="Letzte Änderung" mono>
+              {lastModified ?? 'Nicht angegeben'}
+            </ValueRow>
+            <ValueRow label="OSCAL-Version" mono>
+              {catalogMeta?.oscalVersion ?? 'Nicht angegeben'}
+            </ValueRow>
+            <ValueRow label="Herausgeber">
+              {catalogMeta?.publisher ?? 'Nicht angegeben'}
+            </ValueRow>
+            <ValueRow label="Abrufzeit" mono>
+              {fetchedAt}
+            </ValueRow>
+            <ValueRow label="Status">
+              {catalogStatus || 'Katalog wird vorbereitet'}
+            </ValueRow>
+            <ValueRow label="Anforderungen" mono>
+              {requirementCount.toLocaleString('de-DE')}
+            </ValueRow>
+          </dl>
+        </section>
+
+        <section aria-labelledby="catalog-provenance-heading">
+          <h3 className="section-label" id="catalog-provenance-heading">
+            Herkunft
+          </h3>
+          <dl className="panel-values">
+            {isCuratedSource ? (
+              <>
+                <ValueRow label="Repository">
+                  <a
+                    href={CATALOG_REPOSITORY_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    BSI-Repository
+                  </a>
+                </ValueRow>
+                <ValueRow label="Quellpfad" mono>
+                  <a
+                    href={activeCatalogUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {CATALOG_SOURCE_PATH}
+                  </a>
+                </ValueRow>
+                <ValueRow label="Lizenz">
+                  <a
+                    href={CATALOG_LICENSE_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    CC BY-SA 4.0
+                  </a>
+                </ValueRow>
+                <ValueRow label="Namensnennung">
+                  Bundesamt für Sicherheit in der Informationstechnik (BSI),
+                  Stand-der-Technik-Bibliothek
+                </ValueRow>
+              </>
+            ) : (
+              <ValueRow label="Benutzerdefinierte URL" mono>
+                <a href={activeCatalogUrl} target="_blank" rel="noreferrer">
+                  {activeCatalogUrl}
+                </a>
+              </ValueRow>
+            )}
+
+            {catalogReferences.map((reference, index) => (
+              <ValueRow
+                label={index === 0 ? 'Fachliche Referenz' : 'Weitere Referenz'}
+                key={`${reference.title}-${index}`}
+              >
+                {reference.href ? (
+                  <a href={reference.href} target="_blank" rel="noreferrer">
+                    {reference.title}
+                  </a>
+                ) : (
+                  reference.title
+                )}
+              </ValueRow>
+            ))}
+          </dl>
+        </section>
+
+        <section aria-labelledby="catalog-export-heading">
+          <h3 className="section-label" id="catalog-export-heading">
+            Export
+          </h3>
+          <div className="panel-actions export-actions">
+            <button
+              type="button"
+              onClick={onExportCsv}
+              disabled={exportDisabled}
+            >
+              CSV
+            </button>
+            <button
+              type="button"
+              onClick={onExportMarkdown}
+              disabled={exportDisabled}
+            >
+              Markdown
+            </button>
+          </div>
+          <p className="panel-status">
+            Exportiert die aktuelle Auswahl, sonst die aktuellen
+            Suchergebnisse.
+          </p>
+        </section>
+
+        <p className="community-note">
+          Unabhängiges Community-Projekt, keine offizielle BSI-Anwendung.
+        </p>
+      </div>
+    </aside>
   );
 };
 

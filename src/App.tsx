@@ -1,19 +1,26 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import SettingsPanel from './components/SettingsPanel';
-import SearchBar from './components/SearchBar';
-import ResultsList from './components/ResultsList';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react';
+import CatalogOverview from './components/CatalogOverview';
 import ControlDetail from './components/ControlDetail';
 import PracticeNavigator from './components/PracticeNavigator';
-import Progress from './components/Progress';
+import ResultsList from './components/ResultsList';
+import SearchBar from './components/SearchBar';
+import SettingsPanel from './components/SettingsPanel';
 import {
   canonicalizeCatalogUrl,
   DEFAULT_CATALOG_URL,
   isCuratedCatalogUrl
 } from './config';
-import { buildIndex } from './lib/search';
-import type { SearchHit } from './lib/search';
 import { parseCatalog } from './lib/catalog';
 import { exportCsv, exportMarkdown } from './lib/exporters';
+import { buildIndex } from './lib/search';
+import type { SearchHit } from './lib/search';
 import { clearCache, loadCatalog, saveCatalog } from './lib/storage';
 import type {
   CatalogReference,
@@ -51,10 +58,6 @@ const extractCatalogMeta = (payload: unknown): CatalogMeta => {
     catalog?: { metadata?: Record<string, unknown> };
     metadata?: Record<string, unknown>;
   } | null;
-
-  // Support both shapes:
-  // 1) { catalog: { metadata: ... } }
-  // 2) { metadata: ... }  (falls irgendwo schon "catalog" direkt gecached/übergeben wird)
   const catalog = root?.catalog ?? root;
   const meta = catalog?.metadata;
 
@@ -79,13 +82,17 @@ const extractCatalogMeta = (payload: unknown): CatalogMeta => {
   return {
     title: typeof meta.title === 'string' ? meta.title : undefined,
     version: typeof meta.version === 'string' ? meta.version : undefined,
-    lastModified: typeof meta['last-modified'] === 'string' ? meta['last-modified'] : undefined,
-    oscalVersion: typeof meta['oscal-version'] === 'string' ? meta['oscal-version'] : undefined,
+    lastModified:
+      typeof meta['last-modified'] === 'string'
+        ? meta['last-modified']
+        : undefined,
+    oscalVersion:
+      typeof meta['oscal-version'] === 'string'
+        ? meta['oscal-version']
+        : undefined,
     publisher: typeof publisher === 'string' ? publisher : undefined
   };
 };
-
-
 
 const readHash = (): HashState => {
   const raw = window.location.hash.replace(/^#\/?/, '');
@@ -109,7 +116,7 @@ const writeHash = (state: HashState) => {
   window.location.hash = hash ? `/?${hash}` : '#/';
 };
 
-const App: React.FC = () => {
+const App = () => {
   const initialHash = readHash();
   const [catalogUrl, setCatalogUrl] = useState(() =>
     canonicalizeCatalogUrl(initialHash.url || DEFAULT_CATALOG_URL)
@@ -121,15 +128,17 @@ const App: React.FC = () => {
   const [practices, setPractices] = useState<PracticeRecord[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<string>('');
+  const [status, setStatus] = useState('');
   const [isFetching, setIsFetching] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<number | undefined>(undefined);
+  const [lastUpdated, setLastUpdated] = useState<number>();
   const [catalogMeta, setCatalogMeta] = useState<CatalogMeta>({});
   const [catalogReferences, setCatalogReferences] = useState<
     CatalogReference[]
   >([]);
   const [searchResults, setSearchResults] = useState<SearchHit[]>([]);
-  const [selectedId, setSelectedId] = useState<string | undefined>(initialHash.id);
+  const [selectedId, setSelectedId] = useState<string | undefined>(
+    initialHash.id
+  );
   const [selectedPracticeId, setSelectedPracticeId] = useState<
     string | undefined
   >(initialHash.practice);
@@ -137,13 +146,24 @@ const App: React.FC = () => {
     initialHash.topic
   );
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isCatalogPanelOpen, setIsCatalogPanelOpen] = useState(false);
+  const [isNavigationOpen, setIsNavigationOpen] = useState(false);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [isNarrowViewport, setIsNarrowViewport] = useState(false);
+  const navigationReturnFocusRef = useRef<HTMLElement | null>(null);
+  const panelReturnFocusRef = useRef<HTMLElement | null>(null);
+  const navigationRailRef = useRef<HTMLElement | null>(null);
+  const workspaceRef = useRef<HTMLDivElement | null>(null);
   const isCuratedSource = isCuratedCatalogUrl(catalogUrl);
 
-  const controlMap = useMemo(() => {
-    const map = new Map<string, ControlRecord>();
-    controls.forEach((c) => map.set(c.id, c));
-    return map;
-  }, [controls]);
+  const controlMap = useMemo(
+    () => new Map(controls.map((control) => [control.id, control])),
+    [controls]
+  );
+  const selectedRecord = useMemo(
+    () => controlMap.get(selectedId ?? ''),
+    [controlMap, selectedId]
+  );
 
   useEffect(() => {
     const onHashChange = () => {
@@ -182,77 +202,81 @@ const App: React.FC = () => {
     selectedTopicId
   ]);
 
-  const fetchAndIndex = useCallback(async (hasCachedCatalog = false) => {
-    let processingStarted = false;
-    setIsFetching(true);
-    setError(null);
-    setWarnings([]);
-    setStatus(
-      hasCachedCatalog
-        ? 'Gespeicherter Katalogstand – Aktualisierung wird geprüft'
-        : 'Kein gespeicherter Katalog – Online-Katalog wird geladen'
-    );
-    try {
-      const response = await fetch(catalogUrl);
-      if (!response.ok) {
-        throw new Error(
-          `Katalog konnte nicht abgerufen werden (HTTP ${response.status}).`
-        );
-      }
-      processingStarted = true;
-      const payload = await response.json();
-
-      const parsed = parseCatalog(payload);
-      if (!parsed.controls.length) {
-        throw new Error(
-          'Der Katalog enthält keine verarbeitbaren Anforderungen.'
-        );
-      }
-      buildIndex(parsed.controls);
-
-      await saveCatalog(catalogUrl, payload);
-      setCatalogMeta(extractCatalogMeta(payload));
-      setWarnings(parsed.warnings);
-      setControls(parsed.controls);
-      setPractices(parsed.practices);
-      setCatalogReferences(parsed.references);
-      setLastUpdated(Date.now());
+  const fetchAndIndex = useCallback(
+    async (hasCachedCatalog = false) => {
+      let processingStarted = false;
+      setIsFetching(true);
+      setError(null);
+      setWarnings([]);
       setStatus(
-        isCuratedCatalogUrl(catalogUrl)
-          ? 'Online-Stand erfolgreich geprüft'
-          : 'Benutzerdefinierte Quelle erfolgreich geprüft'
+        hasCachedCatalog
+          ? 'Gespeicherter Katalogstand – Aktualisierung wird geprüft'
+          : 'Kein gespeicherter Katalog – Online-Katalog wird geladen'
       );
-    } catch (err) {
-      const cached = await loadCatalog(catalogUrl);
-      if (cached) {
-        setCatalogMeta(extractCatalogMeta(cached.payload));
-        const parsed = parseCatalog(cached.payload);
-        setWarnings(
-          parsed.warnings.concat(
-            'Online-Abruf fehlgeschlagen; gespeicherter Katalogstand wird verwendet.'
-          )
-        );
+
+      try {
+        const response = await fetch(catalogUrl);
+        if (!response.ok) {
+          throw new Error(
+            `Katalog konnte nicht abgerufen werden (HTTP ${response.status}).`
+          );
+        }
+        processingStarted = true;
+        const payload = await response.json();
+        const parsed = parseCatalog(payload);
+
+        if (!parsed.controls.length) {
+          throw new Error(
+            'Der Katalog enthält keine verarbeitbaren Anforderungen.'
+          );
+        }
+
+        buildIndex(parsed.controls);
+        await saveCatalog(catalogUrl, payload);
+        setCatalogMeta(extractCatalogMeta(payload));
+        setWarnings(parsed.warnings);
         setControls(parsed.controls);
         setPractices(parsed.practices);
         setCatalogReferences(parsed.references);
-        setLastUpdated(cached.fetchedAt);
+        setLastUpdated(Date.now());
+        setStatus(
+          isCuratedCatalogUrl(catalogUrl)
+            ? 'Online-Stand erfolgreich geprüft'
+            : 'Benutzerdefinierte Quelle erfolgreich geprüft'
+        );
+      } catch (caughtError) {
+        const cached = await loadCatalog(catalogUrl);
+        if (cached) {
+          setCatalogMeta(extractCatalogMeta(cached.payload));
+          const parsed = parseCatalog(cached.payload);
+          setWarnings(
+            parsed.warnings.concat(
+              'Online-Abruf fehlgeschlagen; gespeicherter Katalogstand wird verwendet.'
+            )
+          );
+          setControls(parsed.controls);
+          setPractices(parsed.practices);
+          setCatalogReferences(parsed.references);
+          setLastUpdated(cached.fetchedAt);
+        }
+        setStatus(
+          processingStarted
+            ? 'Online-Katalog konnte nicht zuverlässig verarbeitet werden'
+            : cached
+              ? 'Gespeicherter Katalogstand – Online-Stand konnte nicht geprüft werden'
+              : 'Online-Katalog konnte nicht geladen werden'
+        );
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : 'Unbekannter Fehler beim Abrufen des Katalogs'
+        );
+      } finally {
+        setIsFetching(false);
       }
-      setStatus(
-        processingStarted
-          ? 'Online-Katalog konnte nicht zuverlässig verarbeitet werden'
-          : cached
-            ? 'Gespeicherter Katalogstand – Online-Stand konnte nicht geprüft werden'
-            : 'Online-Katalog konnte nicht geladen werden'
-      );
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Unbekannter Fehler beim Abrufen des Katalogs'
-      );
-    } finally {
-      setIsFetching(false);
-    }
-  }, [catalogUrl]);
+    },
+    [catalogUrl]
+  );
 
   useEffect(() => {
     const restoreFromCache = async () => {
@@ -275,9 +299,9 @@ const App: React.FC = () => {
       }
       await fetchAndIndex(Boolean(cached));
     };
+
     void restoreFromCache();
   }, [catalogUrl, fetchAndIndex]);
-
 
   useEffect(() => {
     if (!controls.length) {
@@ -285,24 +309,95 @@ const App: React.FC = () => {
       return;
     }
 
-
     const { query: runQuery } = buildIndex(controls);
-    const results = runQuery(query, groupFilter ? { group: groupFilter } : undefined);
-    setSearchResults(results);
+    setSearchResults(
+      runQuery(query, groupFilter ? { group: groupFilter } : undefined)
+    );
   }, [controls, query, groupFilter]);
 
+  useEffect(() => {
+    if (!selectedRecord) return;
+    const [practiceTitle, topicTitle] = selectedRecord.groupPath;
+    const practice = practices.find((item) => item.title === practiceTitle);
+    const topic = practice?.topics.find((item) => item.title === topicTitle);
+    if (selectedPracticeId !== practice?.id) {
+      setSelectedPracticeId(practice?.id);
+    }
+    if (selectedTopicId !== topic?.id) {
+      setSelectedTopicId(topic?.id);
+    }
+  }, [
+    practices,
+    selectedPracticeId,
+    selectedRecord,
+    selectedTopicId
+  ]);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const media = window.matchMedia('(max-width: 1023px)');
+    const syncViewport = () => setIsNarrowViewport(media.matches);
+    syncViewport();
+    media.addEventListener('change', syncViewport);
+    return () => media.removeEventListener('change', syncViewport);
+  }, []);
+
+  useEffect(() => {
+    if (isNavigationOpen) {
+      document
+        .querySelector<HTMLElement>('#practice-register button')
+        ?.focus();
+      return;
+    }
+    navigationReturnFocusRef.current?.focus();
+    navigationReturnFocusRef.current = null;
+  }, [isNavigationOpen]);
+
+  useEffect(() => {
+    if (isCatalogPanelOpen) {
+      document
+        .querySelector<HTMLElement>(
+          '#catalog-panel [aria-label="Katalogstand schließen"]'
+        )
+        ?.focus();
+      return;
+    }
+    panelReturnFocusRef.current?.focus();
+    panelReturnFocusRef.current = null;
+  }, [isCatalogPanelOpen]);
+
+  useLayoutEffect(() => {
+    if (navigationRailRef.current) {
+      navigationRailRef.current.inert =
+        isNarrowViewport && (!isNavigationOpen || isCatalogPanelOpen);
+    }
+    if (workspaceRef.current) {
+      workspaceRef.current.inert =
+        isNarrowViewport && (isNavigationOpen || isCatalogPanelOpen);
+    }
+  }, [isCatalogPanelOpen, isNarrowViewport, isNavigationOpen]);
+
+  useEffect(() => {
+    const closeTransientPanels = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setIsCatalogPanelOpen(false);
+      setIsNavigationOpen(false);
+    };
+    window.addEventListener('keydown', closeTransientPanels);
+    return () => window.removeEventListener('keydown', closeTransientPanels);
+  }, []);
 
   const groups = useMemo(() => {
     const allPaths = new Set<string>();
-    controls.forEach((c) => c.groupPath.forEach((p) => allPaths.add(p)));
+    controls.forEach((control) =>
+      control.groupPath.forEach((path) => allPaths.add(path))
+    );
     return Array.from(allPaths).sort();
   }, [controls]);
 
-  const selectedRecord = useMemo(() => controlMap.get(selectedId ?? ''), [controlMap, selectedId]);
-
   const toggleSelected = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
+    setSelectedIds((previous) => {
+      const next = new Set(previous);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
@@ -310,47 +405,132 @@ const App: React.FC = () => {
   };
 
   const selectAllVisible = () => {
-    setSelectedIds(new Set(searchResults.map((r) => r.id)));
+    setSelectedIds(new Set(searchResults.map((result) => result.id)));
   };
 
   const recordsForExport = selectedIds.size
-    ? searchResults.filter((r) => selectedIds.has(r.id))
+    ? searchResults.filter((result) => selectedIds.has(result.id))
     : searchResults;
 
   const downloadFile = (content: string, filename: string, mime: string) => {
     const blob = new Blob([content], { type: mime });
     const href = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = href;
-    a.download = filename;
-    a.click();
+    const anchor = document.createElement('a');
+    anchor.href = href;
+    anchor.download = filename;
+    anchor.click();
     URL.revokeObjectURL(href);
   };
 
   const handleExportCsv = () => {
-    downloadFile(exportCsv(recordsForExport), 'grundschutz-controls.csv', 'text/csv;charset=utf-8');
+    downloadFile(
+      exportCsv(recordsForExport),
+      'grundschutz-controls.csv',
+      'text/csv;charset=utf-8'
+    );
   };
 
   const handleExportMarkdown = () => {
-    downloadFile(exportMarkdown(recordsForExport), 'grundschutz-controls.md', 'text/markdown');
+    downloadFile(
+      exportMarkdown(recordsForExport),
+      'grundschutz-controls.md',
+      'text/markdown'
+    );
   };
 
   const handleQueryChange = (value: string) => {
     setQuery(value);
-    if (!value.trim()) {
+    setSelectedId(undefined);
+    if (!value.trim() && !groupFilter) {
       setSelectedPracticeId(undefined);
       setSelectedTopicId(undefined);
     }
   };
 
+  const handleGroupChange = (value: string) => {
+    setGroupFilter(value);
+    setSelectedId(undefined);
+    if (!value) {
+      setSelectedPracticeId(undefined);
+      setSelectedTopicId(undefined);
+      return;
+    }
+
+    const practice = practices.find((item) => item.title === value);
+    const topicMatch = practices
+      .flatMap((item) =>
+        item.topics.map((topic) => ({ practice: item, topic }))
+      )
+      .find(({ topic }) => topic.title === value);
+    setSelectedPracticeId(practice?.id ?? topicMatch?.practice.id);
+    setSelectedTopicId(topicMatch?.topic.id);
+  };
+
   const handleSelectPractice = (practiceId: string) => {
-    setSelectedPracticeId(practiceId || undefined);
+    const practice = practices.find((item) => item.id === practiceId);
+    setSelectedPracticeId(practiceId);
     setSelectedTopicId(undefined);
+    setSelectedId(undefined);
+    setGroupFilter(practice?.title ?? '');
+    setIsNavigationOpen(false);
   };
 
   const handleSelectTopic = (practiceId: string, topicId: string) => {
+    const practice = practices.find((item) => item.id === practiceId);
+    const topic = practice?.topics.find((item) => item.id === topicId);
     setSelectedPracticeId(practiceId);
-    setSelectedTopicId(topicId || undefined);
+    setSelectedTopicId(topicId);
+    setSelectedId(undefined);
+    setGroupFilter(topic?.title ?? practice?.title ?? '');
+    setIsNavigationOpen(false);
+  };
+
+  const handleSelectControl = (controlId: string) => {
+    const control = controlMap.get(controlId);
+    const [practiceTitle, topicTitle] = control?.groupPath ?? [];
+    const practice = practices.find((item) => item.title === practiceTitle);
+    const topic = practice?.topics.find((item) => item.title === topicTitle);
+    setSelectedId(controlId);
+    setSelectedPracticeId(practice?.id);
+    setSelectedTopicId(topic?.id);
+    setIsNavigationOpen(false);
+  };
+
+  const handleToggleNavigation = () => {
+    if (!isNavigationOpen) {
+      navigationReturnFocusRef.current =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+    }
+    setIsNavigationOpen((current) => !current);
+  };
+
+  const handleOpenCatalogPanel = () => {
+    if (!isCatalogPanelOpen) {
+      panelReturnFocusRef.current =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+    }
+    setIsCatalogPanelOpen(true);
+  };
+
+  const handleToggleCatalogPanel = () => {
+    if (isCatalogPanelOpen) {
+      setIsCatalogPanelOpen(false);
+      return;
+    }
+    handleOpenCatalogPanel();
+  };
+
+  const handleNavigateHome = () => {
+    setQuery('');
+    setGroupFilter('');
+    setSelectedId(undefined);
+    setSelectedPracticeId(undefined);
+    setSelectedTopicId(undefined);
+    setIsNavigationOpen(false);
   };
 
   const handleCatalogFetch = () => {
@@ -364,135 +544,198 @@ const App: React.FC = () => {
   };
 
   const isSearchMode = Boolean(query.trim() || groupFilter);
+  const resultHeading = query.trim()
+    ? `${searchResults.length} Treffer für „${query.trim()}“`
+    : `${searchResults.length} Anforderungen`;
 
   return (
-    <div className="app-shell">
-        <header className="header">
-          <div>
-            <h1>Grundschutz++ Explorer</h1>
-            <p>Referenzansicht des aktuellen Grundschutz++-Katalogs.</p>
-          </div>
-        </header>
-
-
-      <SettingsPanel
-        catalogUrl={catalogUrlDraft}
-        activeCatalogUrl={catalogUrl}
-        onChangeUrl={setCatalogUrlDraft}
-        onFetch={handleCatalogFetch}
-        onClearCache={() =>
-          clearCache()
-            .then(() => setWarnings(['Cache wurde geleert.']))
-            .catch((err) =>
-              setWarnings([
-                err instanceof Error && err.message.includes('blocked')
-                  ? 'Cache konnte nicht vollständig geleert werden. Bitte andere Explorer-Tabs schließen und erneut versuchen.'
-                  : 'Cache konnte nicht vollständig geleert werden. Bitte erneut versuchen.',
-              ])
-            )
+    <div
+      className={`explorer-shell${isCatalogPanelOpen ? ' is-panel-open' : ''}`}
+    >
+      <aside
+        ref={navigationRailRef}
+        id="practice-register"
+        className={`navigation-rail${isNavigationOpen ? ' is-open' : ''}`}
+        aria-hidden={
+          isNarrowViewport && (!isNavigationOpen || isCatalogPanelOpen)
+            ? true
+            : undefined
         }
-        isFetching={isFetching}
-        lastUpdated={lastUpdated}
-        catalogMeta={catalogMeta}
-        catalogReferences={catalogReferences}
-        catalogStatus={status}
-        isCuratedSource={isCuratedSource}
-      />
+      >
+        <PracticeNavigator
+          practices={practices}
+          controls={controls}
+          selectedPracticeId={selectedPracticeId}
+          selectedTopicId={selectedTopicId}
+          selectedControlId={selectedId}
+          onSelectPractice={handleSelectPractice}
+          onSelectTopic={handleSelectTopic}
+          onSelectControl={handleSelectControl}
+          onNavigateHome={handleNavigateHome}
+        />
+      </aside>
 
+      {isNavigationOpen ? (
+        <button
+          type="button"
+          className="navigation-backdrop"
+          onClick={() => setIsNavigationOpen(false)}
+          aria-label="Register schließen"
+        />
+      ) : null}
 
-      {status &&
-        (isFetching ? (
-          <Progress label={status} />
-        ) : (
-          <div className="notice" role="status" aria-live="polite">
-            {status}
-          </div>
-        ))}
-      {error && <div className="notice error">{error}</div>}
-      {warnings.length > 0 && (
-        <div className="notice" role="alert">
-          {warnings.map((w, idx) => (
-            <div key={idx}>{w}</div>
-          ))}
+      <div
+        ref={workspaceRef}
+        className="workspace"
+        aria-hidden={
+          isNarrowViewport && (isNavigationOpen || isCatalogPanelOpen)
+            ? true
+            : undefined
+        }
+      >
+        <SearchBar
+          query={query}
+          groupFilter={groupFilter}
+          groups={groups}
+          onQueryChange={handleQueryChange}
+          onGroupChange={handleGroupChange}
+          catalogStatus={status}
+          isFetching={isFetching}
+          isCatalogPanelOpen={isCatalogPanelOpen}
+          isNavigationOpen={isNavigationOpen}
+          onToggleCatalogPanel={handleToggleCatalogPanel}
+          onToggleNavigation={handleToggleNavigation}
+        />
+
+        <div className="status-messages">
+          {status ? (
+            <div role="status" aria-live="polite">
+              {status}
+            </div>
+          ) : null}
+          {error ? <div className="error-message">{error}</div> : null}
+          {warnings.length ? (
+            <div className="warning-message" role="alert">
+              {warnings.map((warning, index) => (
+                <div key={`${warning}-${index}`}>{warning}</div>
+              ))}
+            </div>
+          ) : null}
         </div>
-      )}
 
-      <SearchBar
-        query={query}
-        groupFilter={groupFilter}
-        groups={groups}
-        onQueryChange={handleQueryChange}
-        onGroupChange={setGroupFilter}
-      />
-
-      {isSearchMode ? (
-        <>
-          <div className="actions" style={{ margin: '0.75rem 0' }}>
-            <button type="button" onClick={selectAllVisible} disabled={!searchResults.length}>
-              Alle Treffer auswählen ({searchResults.length})
-            </button>
-            <button type="button" onClick={() => setSelectedIds(new Set())} disabled={!selectedIds.size}>
-              Auswahl aufheben
-            </button>
-            <button type="button" onClick={handleExportCsv} disabled={!searchResults.length}>
-              CSV exportieren
-            </button>
-            <button type="button" onClick={handleExportMarkdown} disabled={!searchResults.length}>
-              Markdown exportieren
-            </button>
-            <span aria-live="polite">
-              Ausgewählt: {selectedIds.size || 'keine'}
-            </span>
-          </div>
-
-          <div className="results">
-            <ResultsList
-              results={searchResults}
-              selectedId={selectedId}
-              selectedIds={selectedIds}
-              onSelect={setSelectedId}
-              onToggleSelected={toggleSelected}
-            />
+        <main
+          className={`main-content${selectedRecord ? ' detail-view' : ''}${isSearchMode && !selectedRecord ? ' search-view' : ''}`}
+        >
+          {selectedRecord ? (
             <ControlDetail control={selectedRecord} />
-          </div>
-        </>
-      ) : (
-        <div className={`results${selectedRecord ? '' : ' single-column'}`}>
-          <PracticeNavigator
-            practices={practices}
-            controls={controls}
-            selectedPracticeId={selectedPracticeId}
-            selectedTopicId={selectedTopicId}
-            onSelectPractice={handleSelectPractice}
-            onSelectTopic={handleSelectTopic}
-            onSelectControl={setSelectedId}
-          />
-          {selectedRecord ? <ControlDetail control={selectedRecord} /> : null}
-        </div>
-      )}
-
-        <footer>
-          <div>
-            Datenquelle:{' '}
-            <a
-              href="https://github.com/BSI-Bund/Stand-der-Technik-Bibliothek"
-              target="_blank"
-              rel="noreferrer"
+          ) : isSearchMode ? (
+            <section
+              className="search-results-view"
+              aria-labelledby="results-heading"
             >
-              BSI „Stand der Technik Bibliothek“ (Grundschutz++-Kompendium)
-            </a>
-            . Vor einer Weiterverwendung bitte die BSI-Lizenzbedingungen
-            prüfen.
-          </div>
-          <div>
-            Ansicht teilen: Die URL nach Auswahl oder Filterung kopieren.
-          </div>
-          <div>
-            Unabhängiges Community-Projekt, keine offizielle BSI-Anwendung.
-          </div>
-        </footer>
+              <div className="results-heading">
+                <h1 id="results-heading">{resultHeading}</h1>
+                {groupFilter ? (
+                  <button
+                    type="button"
+                    className="active-filter"
+                    onClick={() => handleGroupChange('')}
+                    aria-label={`Bereichsfilter ${groupFilter} entfernen`}
+                  >
+                    in {groupFilter} ✕
+                  </button>
+                ) : null}
+                <div className="result-actions">
+                  <button
+                    type="button"
+                    className="text-action"
+                    onClick={() => setIsSelectionMode((current) => !current)}
+                  >
+                    {isSelectionMode ? 'Auswahl beenden' : 'Auswählen'}
+                  </button>
+                  <button
+                    type="button"
+                    className="text-action"
+                    onClick={handleOpenCatalogPanel}
+                  >
+                    Exportieren
+                  </button>
+                </div>
+              </div>
 
+              {isSelectionMode ? (
+                <div className="selection-actions">
+                  <button
+                    type="button"
+                    onClick={selectAllVisible}
+                    disabled={!searchResults.length}
+                  >
+                    Alle Treffer auswählen ({searchResults.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedIds(new Set())}
+                    disabled={!selectedIds.size}
+                  >
+                    Auswahl aufheben
+                  </button>
+                  <span aria-live="polite">
+                    Ausgewählt: {selectedIds.size || 'keine'}
+                  </span>
+                </div>
+              ) : null}
 
+              <ResultsList
+                results={searchResults}
+                query={query}
+                selectedId={selectedId}
+                selectedIds={selectedIds}
+                selectionMode={isSelectionMode}
+                onSelect={handleSelectControl}
+                onToggleSelected={toggleSelected}
+              />
+            </section>
+          ) : (
+            <CatalogOverview
+              practices={practices}
+              title={catalogMeta.title}
+              onSelectPractice={handleSelectPractice}
+            />
+          )}
+        </main>
+      </div>
+
+      {isCatalogPanelOpen ? (
+        <SettingsPanel
+          catalogUrl={catalogUrlDraft}
+          activeCatalogUrl={catalogUrl}
+          onChangeUrl={setCatalogUrlDraft}
+          onFetch={handleCatalogFetch}
+          onClearCache={() =>
+            clearCache()
+              .then(() => setWarnings(['Cache wurde geleert.']))
+              .catch((caughtError) =>
+                setWarnings([
+                  caughtError instanceof Error &&
+                  caughtError.message.includes('blocked')
+                    ? 'Cache konnte nicht vollständig geleert werden. Bitte andere Explorer-Tabs schließen und erneut versuchen.'
+                    : 'Cache konnte nicht vollständig geleert werden. Bitte erneut versuchen.'
+                ])
+              )
+          }
+          onClose={() => setIsCatalogPanelOpen(false)}
+          onExportCsv={handleExportCsv}
+          onExportMarkdown={handleExportMarkdown}
+          exportDisabled={!searchResults.length}
+          isFetching={isFetching}
+          lastUpdated={lastUpdated}
+          catalogMeta={catalogMeta}
+          catalogReferences={catalogReferences}
+          catalogStatus={status}
+          isCuratedSource={isCuratedSource}
+          requirementCount={controls.length}
+        />
+      ) : null}
     </div>
   );
 };
