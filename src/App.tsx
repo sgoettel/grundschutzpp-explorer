@@ -116,6 +116,18 @@ const writeHash = (state: HashState) => {
   window.location.hash = hash ? `/?${hash}` : '#/';
 };
 
+const TechnicalErrorDetails = ({ message }: { message: string }) => (
+  <details className="catalog-error-details">
+    <summary>
+      <span className="disclosure-marker" aria-hidden="true">
+        ▸
+      </span>{' '}
+      Technische Details
+    </summary>
+    <code>{message}</code>
+  </details>
+);
+
 const App = () => {
   const initialHash = readHash();
   const [catalogUrl, setCatalogUrl] = useState(() =>
@@ -128,8 +140,9 @@ const App = () => {
   const [practices, setPractices] = useState<PracticeRecord[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [status, setStatus] = useState('');
-  const [isFetching, setIsFetching] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<number>();
   const [catalogMeta, setCatalogMeta] = useState<CatalogMeta>({});
   const [catalogReferences, setCatalogReferences] = useState<
@@ -223,6 +236,7 @@ const App = () => {
       let processingStarted = false;
       setIsFetching(true);
       setError(null);
+      setErrorDetails(null);
       setWarnings([]);
       setStatus(
         hasCachedCatalog
@@ -282,10 +296,19 @@ const App = () => {
               ? 'Gespeicherter Katalogstand – Online-Stand konnte nicht geprüft werden'
               : 'Online-Katalog konnte nicht geladen werden'
         );
-        setError(
+        setErrorDetails(
           caughtError instanceof Error
             ? caughtError.message
             : 'Unbekannter Fehler beim Abrufen des Katalogs'
+        );
+        setError(
+          cached
+            ? processingStarted
+              ? 'Der Online-Katalog konnte nicht zuverlässig verarbeitet werden. Der gespeicherte Katalogstand bleibt verfügbar.'
+              : 'Der Online-Stand konnte nicht geprüft werden. Der gespeicherte Katalogstand bleibt verfügbar.'
+            : processingStarted
+              ? 'Der Online-Katalog konnte nicht zuverlässig verarbeitet werden. Prüfe die Katalogquelle und versuche es erneut.'
+              : 'Der Online-Katalog konnte nicht geladen werden. Prüfe die Verbindung oder die Katalogquelle und versuche es erneut.'
         );
       } finally {
         setIsFetching(false);
@@ -296,6 +319,9 @@ const App = () => {
 
   useEffect(() => {
     const restoreFromCache = async () => {
+      setIsFetching(true);
+      setError(null);
+      setErrorDetails(null);
       setCatalogMeta({});
       setCatalogReferences([]);
       setLastUpdated(undefined);
@@ -567,10 +593,21 @@ const App = () => {
     setIsNavigationOpen(false);
   };
 
+  const resetCatalogContext = () => {
+    resetResultSelection();
+    setQuery('');
+    setGroupFilter('');
+    setSelectedId(undefined);
+    setSelectedPracticeId(undefined);
+    setSelectedTopicId(undefined);
+  };
+
   const handleCatalogFetch = () => {
     const nextUrl = canonicalizeCatalogUrl(catalogUrlDraft);
     setCatalogUrlDraft(nextUrl);
     if (nextUrl && nextUrl !== catalogUrl) {
+      resetCatalogContext();
+      setIsFetching(true);
       setCatalogUrl(nextUrl);
       return;
     }
@@ -578,6 +615,9 @@ const App = () => {
   };
 
   const isSearchMode = Boolean(query.trim() || groupFilter);
+  const isInitialCatalogLoading = isFetching && !controls.length;
+  const hasCatalogLoadError =
+    Boolean(error) && !controls.length && !isFetching;
   const resultHeading = query.trim()
     ? `${searchResults.length} Treffer für „${query.trim()}“`
     : `${searchResults.length} Anforderungen`;
@@ -647,7 +687,14 @@ const App = () => {
               {status}
             </div>
           ) : null}
-          {error ? <div className="error-message">{error}</div> : null}
+          {error && controls.length ? (
+            <div className="error-message">
+              <p>{error}</p>
+              {errorDetails ? (
+                <TechnicalErrorDetails message={errorDetails} />
+              ) : null}
+            </div>
+          ) : null}
           {warnings.length ? (
             <div className="warning-message" role="alert">
               {warnings.map((warning, index) => (
@@ -660,7 +707,31 @@ const App = () => {
         <main
           className={`main-content${selectedRecord ? ' detail-view' : ''}${isSearchMode && !selectedRecord ? ' search-view' : ''}`}
         >
-          {selectedRecord ? (
+          {isInitialCatalogLoading ? (
+            <section
+              className="catalog-state catalog-loading-state"
+              aria-labelledby="catalog-loading-heading"
+            >
+              <h1 id="catalog-loading-heading">Katalog wird geladen</h1>
+              <p>
+                Der Katalog wird vorbereitet. Anforderungen und Praktiken
+                erscheinen, sobald die Quelle verfügbar ist.
+              </p>
+            </section>
+          ) : hasCatalogLoadError ? (
+            <section
+              className="catalog-state catalog-error-state"
+              aria-labelledby="catalog-error-heading"
+            >
+              <h1 id="catalog-error-heading">
+                Katalog konnte nicht geladen werden
+              </h1>
+              <p>{error}</p>
+              {errorDetails ? (
+                <TechnicalErrorDetails message={errorDetails} />
+              ) : null}
+            </section>
+          ) : selectedRecord ? (
             <ControlDetail control={selectedRecord} />
           ) : isSearchMode ? (
             <section

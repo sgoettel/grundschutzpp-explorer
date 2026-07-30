@@ -98,4 +98,33 @@ describe('ResultsList', () => {
     fireEvent.keyDown(secondAction, { key: 'Enter' });
     expect(onSelect).toHaveBeenCalledWith('GS-2');
   });
+
+  it('does not repeat the generated path snippet for a pure area filter', () => {
+    const hit: SearchHit = {
+      id: 'GS-1',
+      title: 'Kryptografie einsetzen',
+      groupPath: ['Technik', 'Kryptografie'],
+      fullText: 'Kryptografie einsetzen',
+      control: {},
+      metadata: { known: [], unknown: [] },
+      score: 1,
+      primaryField: 'path',
+      matchedFields: [],
+      snippet: 'Technik › Kryptografie'
+    };
+
+    render(
+      <ResultsList
+        results={[hit]}
+        query=""
+        selectedIds={new Set()}
+        selectionMode={false}
+        onSelect={() => undefined}
+        onToggleSelected={() => undefined}
+      />
+    );
+
+    expect(screen.getAllByText('Technik › Kryptografie')).toHaveLength(1);
+  });
+
 });

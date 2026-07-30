@@ -27,7 +27,6 @@
 }
 
 html {
-  min-width: 320px;
   background: #e6e8ea;
 }
 
@@ -431,6 +430,14 @@ a:hover {
   background: #fff7f7;
 }
 
+.error-message > p {
+  margin: 0;
+}
+
+.error-message .catalog-error-details {
+  margin-top: 7px;
+}
+
 .warning-message {
   color: #7c2d12;
   background: #fffaf5;
@@ -440,11 +447,13 @@ a:hover {
   min-width: 0;
 }
 
-.catalog-overview {
+.catalog-overview,
+.catalog-state {
   padding: 44px 56px 56px;
 }
 
 .catalog-overview > h1,
+.catalog-state > h1,
 .control-detail h1 {
   margin: 0;
   color: var(--text);
@@ -452,6 +461,51 @@ a:hover {
   font-weight: 700;
   line-height: 1.15;
   letter-spacing: -0.02em;
+}
+
+.catalog-state {
+  max-width: 78ch;
+}
+
+.catalog-state > p {
+  max-width: 70ch;
+  margin: 14px 0 0;
+  color: var(--text-secondary);
+  font-size: 16.5px;
+  line-height: 1.7;
+}
+
+.catalog-loading-state {
+  border-top: 3px solid var(--accent);
+}
+
+.catalog-error-details {
+  margin-top: 18px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.catalog-error-details summary {
+  width: max-content;
+  max-width: 100%;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+
+.catalog-error-details[open] .disclosure-marker {
+  display: inline-block;
+  transform: rotate(90deg);
+}
+
+.catalog-error-details code {
+  display: block;
+  max-width: 72ch;
+  margin-top: 10px;
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .overview-intro {
@@ -516,11 +570,57 @@ a:hover {
   background: #fafbfc;
 }
 
-.overview-description {
+.overview-description-details {
   margin: -3px 0 10px 34px;
+}
+
+.overview-description-summary {
   color: var(--text-muted);
+  cursor: pointer;
   font-size: 12.5px;
   line-height: 1.5;
+}
+
+.overview-description-preview {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  text-wrap: pretty;
+}
+
+.overview-description-details[open]
+  > .overview-description-summary
+  > .overview-description-preview {
+  display: none;
+}
+
+.overview-description-summary > .disclosure-marker {
+  color: var(--text-label);
+}
+
+.overview-description-action {
+  color: var(--text-label);
+  font-size: 11.5px;
+}
+
+.overview-description-summary:hover > .disclosure-marker,
+.overview-description-summary:hover > .overview-description-action,
+.overview-description-details[open]
+  > .overview-description-summary
+  > .disclosure-marker,
+.overview-description-details[open]
+  > .overview-description-summary
+  > .overview-description-action {
+  color: var(--accent-text);
+}
+
+.overview-description-full {
+  margin: 6px 0 14px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
 }
 
 .overview-number,
@@ -1191,6 +1291,10 @@ details > summary::-webkit-details-marker {
 }
 
 @media (min-width: 1024px) and (max-width: 1180px) {
+  .overview-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .control-detail {
     padding-right: 32px;
     padding-left: 32px;
@@ -1241,7 +1345,13 @@ details > summary::-webkit-details-marker {
   }
 
   .navigation-toggle {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    margin-left: -12px;
+    padding: 0 12px;
   }
 
   .search-strip {
@@ -1249,11 +1359,20 @@ details > summary::-webkit-details-marker {
     padding: 0 20px;
   }
 
+  .catalog-panel-trigger {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    margin-right: -8px;
+    padding: 0 8px;
+  }
+
   .scope-select {
     display: none;
   }
 
   .catalog-overview,
+  .catalog-state,
   .control-detail,
   .explorer-shell.is-panel-open .control-detail,
   .search-results-view {
@@ -1261,6 +1380,7 @@ details > summary::-webkit-details-marker {
   }
 
   .catalog-overview > h1,
+  .catalog-state > h1,
   .control-detail h1,
   .explorer-shell.is-panel-open .control-detail h1 {
     font-size: 26px;

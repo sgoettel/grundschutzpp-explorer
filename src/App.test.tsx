@@ -635,6 +635,59 @@ describe('App catalog navigation', () => {
     );
   });
 
+  it('shows a real loading view before the first uncached catalog is ready', async () => {
+    window.location.hash = '#/';
+    vi.mocked(loadCatalog).mockResolvedValue(null);
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => undefined)));
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Katalog wird geladen',
+        level: 1
+      })
+    ).toBeVisible();
+    expect(
+      within(screen.getByRole('banner')).getByText('Katalog wird geladen')
+    ).toBeVisible();
+    expect(
+      screen.queryByRole('heading', { name: /0 Praktiken/ })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Aktualisierung wird geprüft')
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps technical load errors behind a readable primary message', async () => {
+    window.location.hash = '#/';
+    vi.mocked(loadCatalog).mockResolvedValue(null);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockRejectedValue(new Error('Failed to fetch'))
+    );
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Katalog konnte nicht geladen werden',
+        level: 1
+      })
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        'Der Online-Katalog konnte nicht geladen werden. Prüfe die Verbindung oder die Katalogquelle und versuche es erneut.'
+      )
+    ).toBeVisible();
+    const technicalError = screen.getByText('Failed to fetch');
+    expect(technicalError).not.toBeVisible();
+
+    fireEvent.click(screen.getByText('Technische Details'));
+
+    expect(technicalError).toBeVisible();
+  });
+
   it('keeps catalog URL and cache controls outside the primary path', async () => {
     window.location.hash = '#/';
     vi.mocked(loadCatalog).mockResolvedValue(null);
@@ -712,9 +765,15 @@ describe('App catalog navigation', () => {
 
     expect(
       await screen.findByText(
-        'Der Katalog enthält keine verarbeitbaren Anforderungen.'
+        'Der Online-Katalog konnte nicht zuverlässig verarbeitet werden. Der gespeicherte Katalogstand bleibt verfügbar.'
       )
-    ).toBeInTheDocument();
+    ).toBeVisible();
+    const technicalError = screen.getByText(
+      'Der Katalog enthält keine verarbeitbaren Anforderungen.'
+    );
+    expect(technicalError).not.toBeVisible();
+    fireEvent.click(screen.getByText('Technische Details'));
+    expect(technicalError).toBeVisible();
     expect(screen.getByRole('status')).toHaveTextContent(
       'Online-Katalog konnte nicht zuverlässig verarbeitet werden'
     );
@@ -944,6 +1003,15 @@ describe('App catalog navigation', () => {
     expect(
       await screen.findByRole('button', { name: 'Organisation' })
     ).toBeInTheDocument();
+    const searchbox = screen.getByRole('searchbox', {
+      name: 'Anforderungen durchsuchen'
+    });
+    fireEvent.change(searchbox, { target: { value: 'Regelungen' } });
+    expect(
+      screen.getByRole('heading', {
+        name: '1 Treffer für „Regelungen“'
+      })
+    ).toBeInTheDocument();
     const panel = openCatalogProvenance();
 
     fireEvent.change(
@@ -954,9 +1022,24 @@ describe('App catalog navigation', () => {
       within(panel).getByRole('button', { name: 'Abrufen und aufbereiten' })
     );
 
+    expect(searchbox).toHaveValue('');
+    expect(screen.getByRole('combobox', { name: 'Bereich' })).toHaveValue('');
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent(
         'Online-Katalog konnte nicht geladen werden'
+      )
+    );
+    expect(
+      screen.getByRole('heading', {
+        name: 'Katalog konnte nicht geladen werden'
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: /0 Anforderungen/ })
+    ).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(window.location.hash).toBe(
+        '#/?url=https%3A%2F%2Fcustom.example%2Funavailable.json'
       )
     );
     expect(

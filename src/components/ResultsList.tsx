@@ -116,6 +116,11 @@ const ResultsList = ({
         const isActive =
           selectedId === hit.id ||
           (hasResultFocus && focusIndex === index);
+        const path = hit.groupPath.join(' › ');
+        const isRepeatedFilterPath =
+          !query?.trim() &&
+          hit.primaryField === 'path' &&
+          hit.snippet === path;
 
         return (
           <article
@@ -158,7 +163,9 @@ const ResultsList = ({
                 </span>
               </button>
 
-              <p className="result-path">{hit.groupPath.join(' › ')}</p>
+              {isRepeatedFilterPath ? null : (
+                <p className="result-path">{path}</p>
+              )}
               <p className="result-reason">{hitReason(hit)}</p>
 
               {hit.control.class &&

@@ -49,7 +49,9 @@ const SearchBar = ({
   }, []);
 
   const compactStatus = isFetching
-    ? 'Aktualisierung wird geprüft'
+    ? catalogStatus?.startsWith('Gespeicherter Katalogstand')
+      ? 'Aktualisierung wird geprüft'
+      : 'Katalog wird geladen'
     : catalogStatus?.includes('erfolgreich geprüft')
       ? 'Katalog geprüft'
       : catalogStatus || 'Katalog wird vorbereitet';
