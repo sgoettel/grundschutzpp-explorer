@@ -26,7 +26,10 @@ const ResolvedProse = ({ prose, params }: ResolvedProseProps) => {
             <mark className="parameter-value">{segment.text}</mark>
             <details className="parameter-details">
               <summary aria-label={`Parameterdetails zu ${segment.parameterId}`}>
-                Parameterdetails
+                <span className="disclosure-marker" aria-hidden="true">
+                  ›
+                </span>
+                <span>Parameterdetails</span>
               </summary>
               <dl>
                 <dt>Ursprüngliche OSCAL-Anweisung</dt>

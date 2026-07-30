@@ -64,7 +64,12 @@ const RelationshipList = ({
             )}
           </span>
           <details className="metadata-source-details">
-            <summary>Herkunft</summary>
+            <summary>
+              <span className="disclosure-marker" aria-hidden="true">
+                ›
+              </span>
+              <span>Herkunft</span>
+            </summary>
             <dl>
               <dt>Beziehungsart</dt>
               <dd>{relationship.kind}</dd>

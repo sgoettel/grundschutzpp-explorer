@@ -40,6 +40,9 @@ describe('ControlDetail', () => {
     expect(parameterDetails).not.toBeNull();
     expect(parameterDetails).not.toHaveAttribute('open');
     expect(
+      parameterSummary.querySelector('[aria-hidden="true"]')
+    ).toHaveTextContent('›');
+    expect(
       screen.getByText('30 Tage', { selector: 'mark' })
     ).toHaveClass('parameter-value');
     expect(
@@ -88,6 +91,18 @@ describe('ControlDetail', () => {
             sourceLevel: 'part',
             sourcePath: 'Control → statement-Part → Prop',
             raw: { name: 'modal_verb', value: 'MUSS' }
+          },
+          {
+            name: 'result_specification',
+            value:
+              'Die Umsetzung wird nachvollziehbar dokumentiert und regelmäßig überprüft.',
+            sourceLevel: 'part',
+            sourcePath: 'Control → statement-Part → Prop',
+            raw: {
+              name: 'result_specification',
+              value:
+                'Die Umsetzung wird nachvollziehbar dokumentiert und regelmäßig überprüft.'
+            }
           }
         ],
         unknown: [
@@ -116,11 +131,23 @@ describe('ControlDetail', () => {
     ).toBeInTheDocument();
     expect(within(metadata).getByText('normal-SdT')).toBeInTheDocument();
     expect(within(metadata).getByText('Modalverb')).toBeInTheDocument();
-    expect(within(metadata).getByText('MUSS')).toBeInTheDocument();
+    expect(within(metadata).getByText('MUSS')).toHaveClass(
+      'metadata-value',
+      'is-compact'
+    );
+    expect(
+      within(metadata).getByText(
+        'Die Umsetzung wird nachvollziehbar dokumentiert und regelmäßig überprüft.'
+      )
+    ).toHaveClass('metadata-value', 'is-textual');
 
     const sourceSummaries = within(metadata).getAllByText('Herkunft');
     sourceSummaries.forEach((summary) => {
       expect(summary.closest('details')).not.toHaveAttribute('open');
+      const marker = summary
+        .closest('summary')
+        ?.querySelector('[aria-hidden="true"]');
+      expect(marker).toHaveTextContent('›');
     });
     expect(within(metadata).getByText('Control → Prop')).not.toBeVisible();
 
@@ -138,6 +165,9 @@ describe('ControlDetail', () => {
         level: 5
       })
     ).toBeVisible();
+    expect(
+      fallbackSummary.closest('summary')?.querySelector('[aria-hidden="true"]')
+    ).toHaveTextContent('›');
     const fallback = fallbackSummary.closest('details');
     expect(fallback).not.toBeNull();
     expect(fallback).not.toHaveAttribute('open');
@@ -298,6 +328,13 @@ describe('ControlDetail', () => {
     expect(
       within(relationships).getAllByText('Control → Link')
     ).toHaveLength(2);
+    within(relationships)
+      .getAllByText('Herkunft')
+      .forEach((summary) => {
+        expect(
+          summary.closest('summary')?.querySelector('[aria-hidden="true"]')
+        ).toHaveTextContent('›');
+      });
   });
 
   it('labels the verified target, threat, and security-objective metadata fachlich', () => {

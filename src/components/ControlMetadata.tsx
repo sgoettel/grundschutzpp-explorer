@@ -9,9 +9,34 @@ interface ControlMetadataProps {
 const sourceLevelLabel = (prop: ProjectedProp): string =>
   prop.sourceLevel === 'part' ? 'Part' : 'Control';
 
+const isCompactMetadataValue = (value: string): boolean => {
+  const normalized = value.trim();
+
+  if (!normalized || normalized.length > 40) {
+    return false;
+  }
+
+  return (
+    normalized === '–' ||
+    /^[+-]?\d+(?:[.,]\d+)?(?:\s*%)?$/.test(normalized) ||
+    /^[A-ZÄÖÜ0-9]+$/u.test(normalized) ||
+    /^[A-ZÄÖÜ]{1,6}\s\d+(?:\.\d+)+$/u.test(normalized) ||
+    /^[\p{L}\p{N}]+(?:[._:/+-][\p{L}\p{N}]+)+$/u.test(normalized)
+  );
+};
+
+const DisclosureMarker = () => (
+  <span className="disclosure-marker" aria-hidden="true">
+    ›
+  </span>
+);
+
 const SourceDetails = ({ prop }: { prop: ProjectedProp }) => (
   <details className="metadata-source-details">
-    <summary>Herkunft</summary>
+    <summary>
+      <DisclosureMarker />
+      <span>Herkunft</span>
+    </summary>
     <dl>
       <dt>Namespace</dt>
       <dd>{prop.namespace ?? '–'}</dd>
@@ -51,12 +76,21 @@ const ControlMetadata = ({ record }: ControlMetadataProps) => {
         <ul className="metadata-list">
           {known.map((prop, index) => {
             const label = metadataLabel(prop.name);
+            const value = prop.value ?? '–';
 
             return (
               <li key={`${prop.sourcePath}-${prop.name ?? 'prop'}-${index}`}>
                 <div className="metadata-item">
                   <strong>{label}</strong>
-                  <span>{prop.value ?? '–'}</span>
+                  <span
+                    className={`metadata-value ${
+                      isCompactMetadataValue(value)
+                        ? 'is-compact'
+                        : 'is-textual'
+                    }`}
+                  >
+                    {value}
+                  </span>
                 </div>
                 <SourceDetails prop={prop} />
               </li>
@@ -68,6 +102,7 @@ const ControlMetadata = ({ record }: ControlMetadataProps) => {
       {unknown.length ? (
         <details className="metadata-fallback metadata-section">
           <summary>
+            <DisclosureMarker />
             <span id={fallbackHeadingId} role="heading" aria-level={5}>
               Weitere Metadaten (noch nicht fachlich eingeordnet)
             </span>
