@@ -119,7 +119,7 @@ const SettingsPanel = ({
             </button>
           </div>
           <p className="panel-status" aria-live="polite">
-            Zuletzt abgerufen {fetchedAt} · {catalogStatus || 'Katalog wird vorbereitet'}.
+            Zuletzt abgerufen: {fetchedAt} · {catalogStatus || 'Katalog wird vorbereitet'}.
           </p>
         </section>
 

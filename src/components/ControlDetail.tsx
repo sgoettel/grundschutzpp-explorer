@@ -87,7 +87,7 @@ const ControlDetail = ({ control }: DetailProps) => {
   if (!control) {
     return (
       <p className="empty-detail">
-        Wähle eine Anforderung aus, um Details anzuzeigen.
+        Wählen Sie eine Anforderung aus, um Details anzuzeigen.
       </p>
     );
   }
@@ -137,11 +137,6 @@ const ControlDetail = ({ control }: DetailProps) => {
             {securityLevel ? <span>{securityLevel}</span> : null}
           </div>
         </div>
-        {control.metadata.known.length || control.metadata.unknown.length ? (
-          <a className="text-action detail-origin" href="#merkmale">
-            Herkunft
-          </a>
-        ) : null}
       </div>
 
       {statements.length ? (

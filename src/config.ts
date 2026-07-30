@@ -1,6 +1,9 @@
 export const CATALOG_REPOSITORY_URL =
   'https://github.com/BSI-Bund/Stand-der-Technik-Bibliothek';
 
+export const PROJECT_REPOSITORY_URL =
+  'https://github.com/sgoettel/grundschutzpp-explorer';
+
 export const CATALOG_LICENSE_URL =
   `${CATALOG_REPOSITORY_URL}/blob/main/LICENSE`;
 

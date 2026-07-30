@@ -105,7 +105,7 @@ const CatalogOverview = ({
     <section className="catalog-overview" aria-labelledby="overview-heading">
       <h1 id="overview-heading">{title || 'Anwenderkatalog Grundschutz++'}</h1>
       <p className="overview-intro">
-        Wählen Sie links eine Praktik oder suchen Sie direkt nach einer
+        Wählen Sie im Register eine Praktik oder suchen Sie direkt nach einer
         Anforderung. Anforderungen und Umsetzungshinweise erscheinen im Wortlaut
         der BSI-Quelldaten.
       </p>

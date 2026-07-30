@@ -142,6 +142,9 @@ describe('ControlDetail', () => {
     ).toHaveClass('metadata-value', 'is-textual');
 
     const sourceSummaries = within(metadata).getAllByText('Herkunft');
+    expect(
+      screen.queryByRole('link', { name: 'Herkunft' })
+    ).not.toBeInTheDocument();
     sourceSummaries.forEach((summary) => {
       expect(summary.closest('details')).not.toHaveAttribute('open');
       const marker = summary

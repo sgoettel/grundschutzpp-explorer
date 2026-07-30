@@ -9,6 +9,7 @@ import {
 import CatalogOverview from './components/CatalogOverview';
 import ControlDetail from './components/ControlDetail';
 import PracticeNavigator from './components/PracticeNavigator';
+import ProjectFooter from './components/ProjectFooter';
 import ResultsList from './components/ResultsList';
 import SearchBar from './components/SearchBar';
 import SettingsPanel from './components/SettingsPanel';
@@ -813,6 +814,8 @@ const App = () => {
             />
           )}
         </main>
+
+        <ProjectFooter />
       </div>
 
       {isCatalogPanelOpen ? (

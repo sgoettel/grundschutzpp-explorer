@@ -201,6 +201,45 @@ describe('App catalog navigation', () => {
     expect(
       screen.getByRole('button', { name: 'Katalogstand öffnen' })
     ).toBeInTheDocument();
+    const footer = screen.getByRole('contentinfo', {
+      name: 'Projektinformationen'
+    });
+    expect(footer).toBeVisible();
+    expect(
+      within(footer).getByRole('link', { name: 'GitHub-Repository' })
+    ).toHaveAttribute(
+      'href',
+      'https://github.com/sgoettel/grundschutzpp-explorer'
+    );
+    expect(
+      within(footer).getByRole('link', {
+        name: 'Stand-der-Technik-Bibliothek'
+      })
+    ).toHaveAttribute(
+      'href',
+      'https://github.com/BSI-Bund/Stand-der-Technik-Bibliothek'
+    );
+    expect(
+      within(footer).getByRole('link', { name: 'CC BY-SA 4.0' })
+    ).toHaveAttribute(
+      'href',
+      'https://github.com/BSI-Bund/Stand-der-Technik-Bibliothek/blob/main/LICENSE'
+    );
+    within(footer)
+      .getAllByRole('link')
+      .forEach((link) => {
+        expect(link).toHaveAttribute('target', '_blank');
+        expect(link).toHaveAttribute('rel', 'noreferrer');
+      });
+    expect(footer).toHaveTextContent(
+      'Mit Unterstützung von KI-Werkzeugen entwickelt.'
+    );
+    expect(footer).toHaveTextContent(
+      'Unabhängiges Community-Projekt. Nicht im Auftrag des BSI und keine offizielle BSI-Anwendung.'
+    );
+    expect(footer).toHaveTextContent(
+      'Katalogdaten: Bundesamt für Sicherheit in der Informationstechnik (BSI), Stand-der-Technik-Bibliothek, CC BY-SA 4.0.'
+    );
     expect(
       screen.queryByRole('complementary', { name: 'Katalogstand' })
     ).not.toBeInTheDocument();
@@ -221,6 +260,56 @@ describe('App catalog navigation', () => {
     expect(
       within(panel).getByRole('button', { name: 'Katalogstand schließen' })
     ).toBeInTheDocument();
+    expect(
+      within(panel).queryByRole('contentinfo', {
+        name: 'Projektinformationen'
+      })
+    ).not.toBeInTheDocument();
+    expect(footer.closest('.workspace')).not.toBeNull();
+  });
+
+  it('keeps the project footer after search and detail transitions', async () => {
+    window.location.hash = '#/';
+    vi.mocked(loadCatalog).mockResolvedValue(null);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => catalog
+      })
+    );
+
+    render(<App />);
+
+    const footer = await screen.findByRole('contentinfo', {
+      name: 'Projektinformationen'
+    });
+    await screen.findByRole('button', { name: 'Organisation' });
+    fireEvent.change(
+      screen.getByRole('searchbox', { name: 'Anforderungen durchsuchen' }),
+      { target: { value: 'Regelungen festlegen' } }
+    );
+
+    expect(
+      screen.getByRole('heading', {
+        name: '1 Treffer für „Regelungen festlegen“'
+      })
+    ).toBeInTheDocument();
+    expect(footer).toBeVisible();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /ORG\.1.*Regelungen festlegen/
+      })
+    );
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'Regelungen festlegen',
+        level: 1
+      })
+    ).toBeInTheDocument();
+    expect(footer).toBeVisible();
   });
 
   it('moves focus into transient panels and restores it when they close', async () => {
@@ -346,7 +435,7 @@ describe('App catalog navigation', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        /Wählen Sie links eine Praktik oder suchen Sie direkt/
+        /Wählen Sie im Register eine Praktik oder suchen Sie direkt/
       )
     ).toBeInTheDocument();
     expect(
@@ -657,6 +746,9 @@ describe('App catalog navigation', () => {
     expect(
       screen.queryByText('Aktualisierung wird geprüft')
     ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('contentinfo', { name: 'Projektinformationen' })
+    ).toBeVisible();
   });
 
   it('keeps technical load errors behind a readable primary message', async () => {
@@ -686,6 +778,9 @@ describe('App catalog navigation', () => {
     fireEvent.click(screen.getByText('Technische Details'));
 
     expect(technicalError).toBeVisible();
+    expect(
+      screen.getByRole('contentinfo', { name: 'Projektinformationen' })
+    ).toBeVisible();
   });
 
   it('keeps catalog URL and cache controls outside the primary path', async () => {
