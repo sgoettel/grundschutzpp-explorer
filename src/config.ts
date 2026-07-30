@@ -4,6 +4,9 @@ export const CATALOG_REPOSITORY_URL =
 export const PROJECT_REPOSITORY_URL =
   'https://github.com/sgoettel/grundschutzpp-explorer';
 
+export const AI_ASSISTED_DEVELOPMENT_URL =
+  `${PROJECT_REPOSITORY_URL}/blob/main/AI_ASSISTED_DEVELOPMENT.md`;
+
 export const CATALOG_LICENSE_URL =
   `${CATALOG_REPOSITORY_URL}/blob/main/LICENSE`;
 

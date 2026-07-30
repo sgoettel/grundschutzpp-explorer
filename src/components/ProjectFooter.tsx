@@ -1,4 +1,5 @@
 import {
+  AI_ASSISTED_DEVELOPMENT_URL,
   CATALOG_LICENSE_URL,
   CATALOG_REPOSITORY_URL,
   PROJECT_REPOSITORY_URL
@@ -20,7 +21,9 @@ const ProjectFooter = () => (
         GitHub-Repository
       </a>
       <span aria-hidden="true"> · </span>
-      Mit Unterstützung von KI-Werkzeugen entwickelt.
+      <a href={AI_ASSISTED_DEVELOPMENT_URL} {...externalLinkProps}>
+        Mit Unterstützung von KI-Werkzeugen entwickelt.
+      </a>
     </p>
     <p>
       Unabhängiges Community-Projekt. Nicht im Auftrag des BSI und keine

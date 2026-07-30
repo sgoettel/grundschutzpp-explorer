@@ -225,6 +225,14 @@ describe('App catalog navigation', () => {
       'href',
       'https://github.com/BSI-Bund/Stand-der-Technik-Bibliothek/blob/main/LICENSE'
     );
+    expect(
+      within(footer).getByRole('link', {
+        name: 'Mit Unterstützung von KI-Werkzeugen entwickelt.'
+      })
+    ).toHaveAttribute(
+      'href',
+      'https://github.com/sgoettel/grundschutzpp-explorer/blob/main/AI_ASSISTED_DEVELOPMENT.md'
+    );
     within(footer)
       .getAllByRole('link')
       .forEach((link) => {
