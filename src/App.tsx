@@ -164,6 +164,20 @@ const App = () => {
     () => controlMap.get(selectedId ?? ''),
     [controlMap, selectedId]
   );
+  const selectedTopicControlIds = useMemo(() => {
+    if (!groupFilter || !selectedPracticeId || !selectedTopicId) {
+      return undefined;
+    }
+
+    const practice = practices.find(
+      (item) => item.id === selectedPracticeId
+    );
+    const topic = practice?.topics.find(
+      (item) => item.id === selectedTopicId
+    );
+
+    return topic ? new Set(topic.controlIds) : undefined;
+  }, [groupFilter, practices, selectedPracticeId, selectedTopicId]);
 
   useEffect(() => {
     const onHashChange = () => {
@@ -178,6 +192,8 @@ const App = () => {
       setSelectedId(state.id);
       setSelectedPracticeId(state.practice);
       setSelectedTopicId(state.topic);
+      setSelectedIds(new Set());
+      setIsSelectionMode(false);
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
@@ -287,6 +303,7 @@ const App = () => {
       setPractices([]);
       setWarnings([]);
       setSelectedIds(new Set());
+      setIsSelectionMode(false);
       const cached = await loadCatalog(catalogUrl);
       if (cached) {
         setLastUpdated(cached.fetchedAt);
@@ -310,10 +327,16 @@ const App = () => {
     }
 
     const { query: runQuery } = buildIndex(controls);
-    setSearchResults(
-      runQuery(query, groupFilter ? { group: groupFilter } : undefined)
+    const results = runQuery(
+      query,
+      groupFilter ? { group: groupFilter } : undefined
     );
-  }, [controls, query, groupFilter]);
+    setSearchResults(
+      selectedTopicControlIds
+        ? results.filter((result) => selectedTopicControlIds.has(result.id))
+        : results
+    );
+  }, [controls, groupFilter, query, selectedTopicControlIds]);
 
   useEffect(() => {
     if (!selectedRecord) return;
@@ -408,6 +431,11 @@ const App = () => {
     setSelectedIds(new Set(searchResults.map((result) => result.id)));
   };
 
+  const resetResultSelection = () => {
+    setSelectedIds(new Set());
+    setIsSelectionMode(false);
+  };
+
   const recordsForExport = selectedIds.size
     ? searchResults.filter((result) => selectedIds.has(result.id))
     : searchResults;
@@ -439,6 +467,7 @@ const App = () => {
   };
 
   const handleQueryChange = (value: string) => {
+    resetResultSelection();
     setQuery(value);
     setSelectedId(undefined);
     if (!value.trim() && !groupFilter) {
@@ -448,6 +477,7 @@ const App = () => {
   };
 
   const handleGroupChange = (value: string) => {
+    resetResultSelection();
     setGroupFilter(value);
     setSelectedId(undefined);
     if (!value) {
@@ -467,6 +497,7 @@ const App = () => {
   };
 
   const handleSelectPractice = (practiceId: string) => {
+    resetResultSelection();
     const practice = practices.find((item) => item.id === practiceId);
     setSelectedPracticeId(practiceId);
     setSelectedTopicId(undefined);
@@ -476,6 +507,7 @@ const App = () => {
   };
 
   const handleSelectTopic = (practiceId: string, topicId: string) => {
+    resetResultSelection();
     const practice = practices.find((item) => item.id === practiceId);
     const topic = practice?.topics.find((item) => item.id === topicId);
     setSelectedPracticeId(practiceId);
@@ -486,6 +518,7 @@ const App = () => {
   };
 
   const handleSelectControl = (controlId: string) => {
+    resetResultSelection();
     const control = controlMap.get(controlId);
     const [practiceTitle, topicTitle] = control?.groupPath ?? [];
     const practice = practices.find((item) => item.title === practiceTitle);
@@ -525,6 +558,7 @@ const App = () => {
   };
 
   const handleNavigateHome = () => {
+    resetResultSelection();
     setQuery('');
     setGroupFilter('');
     setSelectedId(undefined);
@@ -649,7 +683,12 @@ const App = () => {
                   <button
                     type="button"
                     className="text-action"
-                    onClick={() => setIsSelectionMode((current) => !current)}
+                    onClick={() =>
+                      setIsSelectionMode((current) => {
+                        if (current) setSelectedIds(new Set());
+                        return !current;
+                      })
+                    }
                   >
                     {isSelectionMode ? 'Auswahl beenden' : 'Auswählen'}
                   </button>

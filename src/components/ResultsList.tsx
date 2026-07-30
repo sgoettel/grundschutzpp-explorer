@@ -67,9 +67,11 @@ const ResultsList = ({
 }: ResultsProps) => {
   const resultActionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [focusIndex, setFocusIndex] = useState(0);
+  const [hasResultFocus, setHasResultFocus] = useState(false);
 
   useEffect(() => {
     setFocusIndex(0);
+    setHasResultFocus(false);
   }, [results]);
 
   useEffect(() => {
@@ -111,7 +113,9 @@ const ResultsList = ({
 
       {results.map((hit, index) => {
         const isSelected = selectedIds.has(hit.id);
-        const isActive = selectedId === hit.id || focusIndex === index;
+        const isActive =
+          selectedId === hit.id ||
+          (hasResultFocus && focusIndex === index);
 
         return (
           <article
@@ -137,7 +141,10 @@ const ResultsList = ({
                 type="button"
                 className="result-open"
                 onClick={() => onSelect(hit.id)}
-                onFocus={() => setFocusIndex(index)}
+                onFocus={() => {
+                  setFocusIndex(index);
+                  setHasResultFocus(true);
+                }}
                 onKeyDown={(event) => handleResultKeyDown(event, index)}
                 tabIndex={focusIndex === index ? 0 : -1}
                 aria-current={selectedId === hit.id ? 'true' : undefined}

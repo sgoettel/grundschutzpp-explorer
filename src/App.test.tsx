@@ -115,6 +115,49 @@ const crossPracticeCatalog = {
   }
 };
 
+const duplicateTopicCatalog = {
+  catalog: {
+    groups: [
+      {
+        id: 'practice-governance',
+        title: 'Governance und Compliance',
+        groups: [
+          {
+            id: 'topic-governance-basics',
+            title: 'Grundlagen',
+            controls: [
+              {
+                id: 'GOV.1',
+                title: 'Verantwortung festlegen'
+              },
+              {
+                id: 'GOV.2',
+                title: 'Vorgaben dokumentieren'
+              }
+            ]
+          }
+        ]
+      },
+      {
+        id: 'practice-operations',
+        title: 'Sicherer Betrieb',
+        groups: [
+          {
+            id: 'topic-operations-basics',
+            title: 'Grundlagen',
+            controls: [
+              {
+                id: 'OPS.1',
+                title: 'Abläufe dokumentieren'
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+};
+
 afterEach(() => {
   vi.clearAllMocks();
   vi.unstubAllGlobals();
@@ -464,6 +507,113 @@ describe('App catalog navigation', () => {
       screen.getByRole('heading', { name: 'Regelungen festlegen', level: 1 })
     ).toBeInTheDocument();
     expect(screen.getByText('ORG.1')).toBeInTheDocument();
+  });
+
+  it('keeps an equally named topic scoped to its selected practice while browsing and searching', async () => {
+    window.location.hash = '#/';
+    vi.mocked(loadCatalog).mockResolvedValue(null);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => duplicateTopicCatalog
+      })
+    );
+
+    render(<App />);
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Governance und Compliance'
+      })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Grundlagen' }));
+
+    expect(
+      screen.getByRole('heading', { name: '2 Anforderungen' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: /GOV\.1.*Verantwortung festlegen/
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: /OPS\.1.*Abläufe dokumentieren/
+      })
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(
+      screen.getByRole('searchbox', {
+        name: 'Anforderungen durchsuchen'
+      }),
+      { target: { value: 'dokumentieren' } }
+    );
+
+    expect(
+      screen.getByRole('heading', {
+        name: '1 Treffer für „dokumentieren“'
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: /GOV\.2.*Vorgaben dokumentieren/
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: /OPS\.1.*Abläufe dokumentieren/
+      })
+    ).not.toBeInTheDocument();
+  });
+
+  it('clears result selection when the visible result context changes', async () => {
+    window.location.hash = '#/';
+    vi.mocked(loadCatalog).mockResolvedValue(null);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => duplicateTopicCatalog
+      })
+    );
+
+    render(<App />);
+
+    const searchbox = await screen.findByRole('searchbox', {
+      name: 'Anforderungen durchsuchen'
+    });
+    fireEvent.change(searchbox, { target: { value: 'dokumentieren' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Auswählen' }));
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: 'Vorgaben dokumentieren auswählen'
+      })
+    );
+    expect(screen.getByText('Ausgewählt: 1')).toBeInTheDocument();
+
+    fireEvent.change(searchbox, { target: { value: 'Verantwortung' } });
+
+    expect(
+      screen.getByRole('button', { name: 'Auswählen' })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Ausgewählt:/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Auswählen' }));
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: 'Verantwortung festlegen auswählen'
+      })
+    );
+    fireEvent.change(screen.getByRole('combobox', { name: 'Bereich' }), {
+      target: { value: 'Sicherer Betrieb' }
+    });
+
+    expect(
+      screen.getByRole('button', { name: 'Auswählen' })
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Ausgewählt:/)).not.toBeInTheDocument();
   });
 
   it('shows the cached catalog while checking the online update', async () => {

@@ -64,6 +64,65 @@ const records: ControlRecord[] = [
   }
 ];
 
+const semanticRecords: ControlRecord[] = [
+  {
+    id: 'BER.6.2',
+    title: 'Wiederanlauf vorbereiten',
+    fullText: '',
+    groupPath: ['Betrieb', 'Wiederanlauf'],
+    control: {},
+    metadata: { known: [], unknown: [] }
+  },
+  {
+    id: 'BER.6.20',
+    title: 'Wiederanlauf nachbereiten',
+    fullText: '',
+    groupPath: ['Betrieb', 'Wiederanlauf'],
+    control: {},
+    metadata: { known: [], unknown: [] }
+  },
+  {
+    id: 'REF.1',
+    title: 'BER.6.2 BER.6.2 BER.6.2',
+    fullText: '',
+    groupPath: ['Referenzen'],
+    control: {},
+    metadata: { known: [], unknown: [] }
+  },
+  {
+    id: 'KI.1',
+    title: 'KI-Systeme absichern',
+    fullText: '',
+    groupPath: ['Technik', 'Künstliche Intelligenz'],
+    control: {},
+    metadata: { known: [], unknown: [] }
+  },
+  {
+    id: 'OPS.1',
+    title: 'Kiosk-Modus absichern',
+    fullText: '',
+    groupPath: ['Betrieb', 'Clients'],
+    control: {},
+    metadata: { known: [], unknown: [] }
+  },
+  {
+    id: 'ORG.1',
+    title: 'Kindprozesse und Kippen dokumentieren',
+    fullText: '',
+    groupPath: ['Organisation', 'Prozesse'],
+    control: {},
+    metadata: { known: [], unknown: [] }
+  },
+  {
+    id: 'RISK.1',
+    title: 'Risikoeigentümer benennen',
+    fullText: '',
+    groupPath: ['Governance', 'Risikomanagement'],
+    control: {},
+    metadata: { known: [], unknown: [] }
+  }
+];
+
 describe('buildIndex', () => {
   it('returns records and supports the existing group filter', () => {
     const { query } = buildIndex(records);
@@ -118,5 +177,13 @@ describe('buildIndex', () => {
       primaryField: 'id',
       snippet: 'GS-EXAKT'
     });
+  });
+
+  it('prioritizes exact IDs and keeps short tokens ahead of word prefixes', () => {
+    const { query } = buildIndex(semanticRecords);
+
+    expect(query('BER.6.2')[0]?.id).toBe('BER.6.2');
+    expect(query('KI').map((hit) => hit.id)).toEqual(['KI.1']);
+    expect(query('Risikoeigentü').map((hit) => hit.id)).toEqual(['RISK.1']);
   });
 });

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { SearchHit } from '../lib/search';
 import ResultsList from './ResultsList';
 import { vi } from 'vitest';
@@ -87,7 +87,11 @@ describe('ResultsList', () => {
     const secondAction = screen.getByRole('button', {
       name: /Zweite Anforderung/
     });
-    firstAction.focus();
+    expect(firstAction).toHaveAttribute('tabindex', '0');
+    expect(firstAction.closest('[data-result]')).not.toHaveClass('is-active');
+
+    act(() => firstAction.focus());
+    expect(firstAction.closest('[data-result]')).toHaveClass('is-active');
     fireEvent.keyDown(firstAction, { key: 'ArrowDown' });
 
     expect(secondAction).toHaveFocus();

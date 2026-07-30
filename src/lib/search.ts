@@ -175,10 +175,13 @@ export const buildIndex = (records: ControlRecord[]): SearchIndexResult => {
 
     if (!queryValue) return [];
 
+    const isShortQuery = normalizedQuery.length <= 2;
+    const normalizedIdQuery = normalizedQuery.toLocaleLowerCase('de');
+
     return index
       .search(queryValue, {
-        prefix: true,
-        fuzzy: 0.2,
+        prefix: !isShortQuery,
+        fuzzy: isShortQuery ? false : 0.2,
         combineWith: 'AND',
         boost: SEARCH_FIELD_BOOST,
         filter: filters?.group
@@ -206,6 +209,13 @@ export const buildIndex = (records: ControlRecord[]): SearchIndexResult => {
             )
           }
         ];
+      })
+      .sort((left, right) => {
+        const leftIsExactId =
+          left.id.toLocaleLowerCase('de') === normalizedIdQuery;
+        const rightIsExactId =
+          right.id.toLocaleLowerCase('de') === normalizedIdQuery;
+        return Number(rightIsExactId) - Number(leftIsExactId);
       });
   };
 
