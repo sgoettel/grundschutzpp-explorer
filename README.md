@@ -1,5 +1,13 @@
 # Grundschutz++ Explorer
 
-Browserbasierte Referenzansicht des aktuellen Grundschutz++-Anwenderkatalogs mit Fachnavigation, Suche und Herkunftsnachweis. Der Katalog wird automatisch aus der BSI-Stand-der-Technik-Bibliothek geladen und lokal zwischengespeichert.
+Liest den OSCAL-Katalog des BSI und zeigt ihn als
+durchsuchbare Webseite an. Läuft im Browser, nichts
+zu installieren.
+
+→ https://sgoettel.github.io/grundschutzpp-explorer/
+
+![Screenshot](docs/screenshot.png)
+
+Kein offizielles Angebot des BSI.
 
 [Hinweise und Rückmeldungen](https://github.com/sgoettel/sgoettel/blob/main/img/mail.png)
